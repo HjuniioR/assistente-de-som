@@ -190,6 +190,8 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
         <select id="cfgInput"><option value="">Microfone do tablet (padrão)</option></select>
         <div class="switch"><span>O som vem da mesa (cabo da saída PHONES no tablet)</span><input type="checkbox" id="cfgLinha"></div>
         <div class="switch"><span>Dar solo automático no canal ao analisar</span><input type="checkbox" id="cfgAutoSolo" checked></div>
+        <button class="btn" id="btnTestIn" style="width:100%;margin-top:8px">Testar se o app está ouvindo a mesa</button>
+        <div class="note" id="lineState" style="margin-top:6px"></div>
         <div class="note" style="margin-top:6px">Com o cabo na entrada de fone do tablet, o Android troca sozinho para ele: deixe a fonte em "padrão" e só ligue a opção acima. Comece com o volume <b>PHONES</b> da Ui16 quase zerado e vá subindo devagar. Na Ui16, deixe o solo em <b>AFL</b> (pós-EQ) para o app enxergar os ajustes.</div>
         <div class="lbl">IA (Anthropic)</div>
         <label>Chave da API</label>
@@ -222,7 +224,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 </script>
 <script>
 (() => {
-const VERSAO = '1.4 · 07/11/2026';
+const VERSAO = '1.5 · 07/11/2026';
 const C = Core, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('som.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -232,7 +234,7 @@ const S = {
   ip: LS.get('ip', ''), demo: LS.get('demo', false), confirm: LS.get('confirm', true), lock: LS.get('lock', false),
   wake: LS.get('wake', true), key: LS.get('key', ''), model: LS.get('model', 'claude-sonnet-5-5'),
   profiles: LS.get('profiles', {}),
-  input: LS.get('input', ''), linha: LS.get('linha', false), autoSolo: LS.get('autoSolo', true),
+  input: LS.get('input', ''), linha: LS.get('linha', false), autoSolo: LS.get('autoSolo', true), lineOk: LS.get('lineOk', null),
 };
 const NCH = 14; // 12 entradas + LINE L/R
 let sel = LS.get('sel', 1);
@@ -470,7 +472,7 @@ async function startMic() {
     const label = (stream.getAudioTracks()[0] || {}).label || '';
     $('#micDot').className = 'dot ok'; $('#micTxt').textContent = (S.linha ? 'Ouvindo a mesa' : 'Ouvindo a igreja') + (label ? ' · ' + label.slice(0, 28) : '');
     $('#btnMic').textContent = 'Desligar áudio';
-    listInputs();
+    listInputs(); renderLineState();
     $('#specOverlay').style.display = 'none';
     log(`Microfone ligado (${A.ctx.sampleRate} Hz)`);
     keepAwake();
@@ -605,8 +607,47 @@ function restoreSolo(prev) {
   if (!prev) return;
   for (let ch = 1; ch <= NCH; ch++) if ((mix.state[soloPath(ch)] ? 1 : 0) !== prev[ch]) setd(soloPath(ch), prev[ch]);
 }
+// ---------- garante que, no modo "som vem da mesa", o app não está ouvindo o microfone interno ----------
+function curInputKey() {
+  const t = A.stream && A.stream.getAudioTracks()[0]; if (!t) return null;
+  const st = t.getSettings ? t.getSettings() : {};
+  return (st.deviceId || '') + '|' + (t.label || '');
+}
+function lineVerified() { return S.lineOk && S.lineOk === curInputKey(); }
+function renderLineState() {
+  const el = $('#lineState'); if (!el) return;
+  if (!S.linha) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = !A.on ? 'Ligue o áudio e toque em "Testar" para confirmar que o som está vindo da mesa.'
+    : lineVerified() ? '✅ Confirmado: o app está ouvindo a <b>mesa</b>, não o microfone do tablet.'
+    : '⚠️ Ainda não confirmado. Enquanto não passar no teste, o app <b>não analisa</b> no modo "som vem da mesa", para não usar o microfone do tablet por engano.';
+}
+function measureDb(ms) {
+  return new Promise(res => {
+    const td = new Float32Array(A.an.fftSize); let sum = 0, cnt = 0;
+    const iv = setInterval(() => { A.an.getFloatTimeDomainData(td); let e = 0; for (let i = 0; i < td.length; i++) e += td[i] * td[i]; sum += e / td.length; cnt++; }, 50);
+    setTimeout(() => { clearInterval(iv); res(10 * Math.log10(sum / Math.max(1, cnt) + 1e-12)); }, ms);
+  });
+}
+async function testInput() {
+  if (!A.on) { await startMic(); if (!A.on) return; }
+  if (!(await confirmDlg('Teste 1 de 2', 'Deixe o PHONES da Ui16 no volume normal, com algum som passando (alguém falando ou uma música na LINE). Depois toque em Continuar.', 'Continuar'))) return;
+  toast('Medindo…'); const comSom = await measureDb(2500);
+  if (!(await confirmDlg('Teste 2 de 2', 'Agora gire o botão PHONES da Ui16 todo para baixo (zero) e toque em Continuar. Não precisa fazer silêncio na igreja.', 'Continuar'))) return;
+  toast('Medindo…'); const semSom = await measureDb(2500);
+  const queda = comSom - semSom;
+  log(`Teste de entrada: ${comSom.toFixed(1)} dB com PHONES, ${semSom.toFixed(1)} dB sem (queda ${queda.toFixed(1)} dB)`);
+  if (comSom < -70) { S.lineOk = null; LS.set('lineOk', null); showInfo('Não chegou som', 'No teste 1 quase não chegou sinal. Confira o cabo e se o PHONES estava aberto com algum som passando.'); }
+  else if (queda >= 18) { S.lineOk = curInputKey(); LS.set('lineOk', S.lineOk); toast('Tudo certo: o app está ouvindo a mesa. Pode voltar o PHONES.'); }
+  else { S.lineOk = null; LS.set('lineOk', null); showInfo('O app está ouvindo o microfone do tablet', `Com o PHONES zerado o som continuou chegando (caiu só ${Math.max(0, queda).toFixed(0)} dB). Ou seja, o tablet não reconheceu o cabo e está usando o microfone interno. Use um cabo P2 de 4 polos próprio para celular (de preferência com resistor/atenuador). Até lá, o app não vai analisar no modo "som vem da mesa".`); }
+  renderLineState();
+}
 async function startAnalysis() {
   if (!A.on) { await startMic(); if (!A.on) return; }
+  if (S.linha && !lineVerified()) {
+    if (await confirmDlg('Confirmar a entrada', 'No modo "som vem da mesa", o app precisa confirmar que não está ouvindo o microfone do tablet. Leva 10 segundos.', 'Fazer o teste')) testInput();
+    return;
+  }
   const p = profOf(sel);
   if (!p) { toast('Escolha primeiro o que está nesse canal'); return; }
   if (cap.on) return;
@@ -814,16 +855,16 @@ async function ask(q) {
 const QUICK = ['Está abafado', 'Está estridente / machucando', 'A voz some atrás da banda', 'Está embolado', 'Tem microfonia', 'O grave está demais', 'Como deixar a pregação mais clara?'];
 
 // ---------------- diálogos ----------------
-function confirmDlg(t, body) {
+function confirmDlg(t, body, okTxt = 'Aplicar') {
   return new Promise(res => {
     const d = $('#dlg'); $('#dlgT').textContent = t; $('#dlgB').innerHTML = `<p style="color:var(--muted);margin:0">${esc(body)}</p>`;
-    $('#dlgOk').style.display = ''; $('#dlgNo').textContent = 'Cancelar';
+    $('#dlgOk').style.display = ''; $('#dlgOk').textContent = okTxt; $('#dlgNo').textContent = 'Cancelar';
     $('#dlgOk').onclick = () => { d.close(); res(true); }; $('#dlgNo').onclick = () => { d.close(); res(false); };
     d.showModal();
   });
 }
 function showInfo(t, body) { const d = $('#dlg'); $('#dlgT').textContent = t; $('#dlgB').innerHTML = `<p style="color:var(--muted);margin:0">${esc(body)}</p>`; $('#dlgOk').style.display = 'none'; $('#dlgNo').textContent = 'Fechar'; $('#dlgNo').onclick = () => d.close(); d.showModal(); }
-function switchTab(id) { if (id === 'tCfg') diag(); $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === id)); if (id === 'tIa') renderChat(); }
+function switchTab(id) { if (id === 'tCfg') { diag(); renderLineState(); } $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === id)); if (id === 'tIa') renderChat(); }
 
 // ---------------- ligações ----------------
 $$('.tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
@@ -842,8 +883,9 @@ bindCfg('#cfgIp', 'ip'); bindCfg('#cfgKey', 'key', 'value', renderChat); bindCfg
 bindCfg('#cfgDemo', 'demo', 'checked', () => { disconnectMixer(); connectMixer(); });
 bindCfg('#cfgConfirm', 'confirm', 'checked'); bindCfg('#cfgLock', 'lock', 'checked', () => { renderSug(); renderFb(); });
 bindCfg('#cfgWake', 'wake', 'checked', keepAwake);
-bindCfg('#cfgLinha', 'linha', 'checked', () => { renderSug(); if (A.on) $('#micTxt').textContent = S.linha ? 'Ouvindo a mesa' : 'Ouvindo a igreja'; });
+bindCfg('#cfgLinha', 'linha', 'checked', () => { renderSug(); renderLineState(); if (A.on) $('#micTxt').textContent = S.linha ? 'Ouvindo a mesa' : 'Ouvindo a igreja'; });
 bindCfg('#cfgAutoSolo', 'autoSolo', 'checked', renderSug);
+$('#btnTestIn').onclick = testInput;
 $('#cfgInput').onchange = () => {
   S.input = $('#cfgInput').value; LS.set('input', S.input);
   if (S.input && !S.linha) { S.linha = true; LS.set('linha', true); $('#cfgLinha').checked = true; toast('Modo "som vem da mesa" ligado'); }
