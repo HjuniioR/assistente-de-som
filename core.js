@@ -229,6 +229,11 @@ const Core = (() => {
         Z('Aspereza', 2000, 4500, 'corte', 'guitarra estridente'),
         Z('Chiado / fritura', 5000, 9000, 'corte', 'distorção chiando')],
     },
+    mix: {
+      nome: 'Som geral da igreja', oculto: true, hpf: 0, core: [100, 8000],
+      alvo: [[31.5, -4], [63, 0], [125, 0], [250, -1], [500, -2], [1000, -3], [2000, -4.5], [4000, -6], [8000, -9], [16000, -14]],
+      zonas: [],
+    },
     playback: {
       nome: 'Playback / música (LINE)', hpf: 35, core: [100, 8000],
       alvo: [[31.5, -6], [63, 0], [125, 0], [250, -1], [500, -3], [1000, -5], [2000, -7], [4000, -9], [8000, -12], [16000, -18]],
@@ -487,6 +492,19 @@ const Core = (() => {
     if (hits.includes(60) && (hits.length >= 2 || near(60).prom > 15)) return hits;
     return null;
   }
+  // A partir da curva medida da igreja (dB por 1/3 de oitava, 0 = equilibrado), sugere ações no EQ gráfico do Master
+  function roomFixes(curva, ok) {
+    const out = [];
+    for (let i = 1; i < THIRD.length - 1; i++) {
+      if (ok && !ok[i]) continue;
+      const v = curva[i], f = THIRD[i];
+      if (f < 40 || f > 12500) continue;
+      const isMax = v >= curva[i - 1] && v >= curva[i + 1], isMin = v <= curva[i - 1] && v <= curva[i + 1];
+      if (isMax && v >= 4) out.push({ tipo: 'corte', freq: f, db: -Math.min(6, Math.round(v * 0.7)), excesso: v });
+      else if (isMin && v <= -7) out.push({ tipo: 'vale', freq: f, falta: v });
+    }
+    return out.sort((a, b) => Math.abs(b.excesso || b.falta) - Math.abs(a.excesso || a.falta)).slice(0, 6);
+  }
   const NOTES = ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'];
   function noteName(f) {
     const m = Math.round(69 + 12 * Math.log2(f / 440));
@@ -497,7 +515,7 @@ const Core = (() => {
     clamp, freqToNorm, normToFreq, qToNorm, normToQ, eqGainToNorm, normToEqGain, inGainToNorm, normToInGain, vuToDb,
     parseLines, parseLine, decodeVu, cmd, P, readChannel, linkedChannels,
     peakingDb, hpfDb, eqResponse, THIRD, thirdOctave, PROFILES, guessProfile, interpTarget, deviations, suggest, pickBand,
-    narrowPeaks, FeedbackDetector, noteName, fmtHz, roundHz, HPF_SLOPES, NIN, LINE_L, LINE_R, isLine, detectHum,
+    narrowPeaks, FeedbackDetector, noteName, fmtHz, roundHz, HPF_SLOPES, NIN, LINE_L, LINE_R, isLine, detectHum, roomFixes,
   };
 })();
 if (typeof module !== 'undefined') module.exports = Core;

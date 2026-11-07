@@ -55,8 +55,10 @@ main{display:grid;grid-template-columns:200px 1fr 400px;min-height:0}
 .eqcell b{display:block;color:var(--text);font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .eqcell.cut b{color:var(--blue)} .eqcell.boost b{color:var(--accent2)}
 aside{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel)}
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
-.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:12px 4px;font-weight:600;color:var(--muted);min-height:48px;font-size:14px}
+.tabs{display:grid;grid-template-columns:repeat(5,1fr);border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:12px 2px;font-weight:600;color:var(--muted);min-height:48px;font-size:13px}
+.form2{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.fl label{display:block;font-size:12px;color:var(--muted);margin:8px 0 4px}
 .tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
 .tab{display:none;overflow:auto;padding:12px;flex:1;min-height:0}
 .tab.on{display:block}
@@ -132,6 +134,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
           <span style="--c:#f5a524">Última análise</span>
           <span style="--c:#3ecf8e">Alvo do perfil</span>
           <span style="--c:#5aa9ff">EQ do canal na mesa</span>
+          <span style="--c:#b48cff">Assinatura da igreja</span>
         </div>
         <div class="overlay" id="specOverlay"><div class="msg">
           <p style="margin:0 0 10px">O app escuta a igreja pelo microfone do tablet, ou a mesa pelo cabo na entrada de fone.</p>
@@ -144,7 +147,8 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
       <div class="tabs" role="tablist">
         <button class="on" data-tab="tSug">Sugestões</button>
         <button data-tab="tFb">Microfonia</button>
-        <button data-tab="tIa">Perguntar à IA</button>
+        <button data-tab="tIa">IA</button>
+        <button data-tab="tIgr">Igreja</button>
         <button data-tab="tCfg">Ajustes</button>
       </div>
 
@@ -169,6 +173,18 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
       </div>
 
       <div class="tab" id="tIa">
+        <div class="card" style="margin-top:0" id="liveBox">
+          <h4>Acompanhamento ao vivo</h4>
+          <p>A IA escuta a igreja e, a cada intervalo, diz o que melhorar. Microfonia é avisada na hora, sem esperar a IA.</p>
+          <div class="lbl">O que está acontecendo agora</div>
+          <div class="chips" id="liveMoment"></div>
+          <div class="lbl">Leitura da IA a cada</div>
+          <div class="chips" id="liveEvery"></div>
+          <button class="btn primary big" id="btnLive" style="margin-top:12px">Começar a acompanhar</button>
+          <div id="liveStatus" style="margin-top:8px;color:var(--muted);font-size:13px"></div>
+        </div>
+        <div id="liveFeed"></div>
+        <div class="lbl" style="margin-top:16px">Conversa</div>
         <div id="iaSetup" class="note" style="margin-top:0">Para usar a IA, coloque sua chave da API da Anthropic em <b>Ajustes</b>. O tablet precisa ter internet.</div>
         <div class="chips" id="iaQuick" style="margin:10px 0"></div>
         <div class="chat" id="chat"></div>
@@ -176,6 +192,17 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
           <textarea id="iaInput" placeholder="Ex.: a voz do pastor está abafada no fundo da igreja, o que faço?"></textarea>
           <button class="btn primary" id="btnAsk">Enviar</button>
         </div>
+      </div>
+
+      <div class="tab" id="tIgr">
+        <div class="note" style="margin-top:0">Conte como é a igreja. A IA usa isso para entender a acústica e dar correções melhores. Preencha o que souber.</div>
+        <div class="fl" id="igrForm"></div>
+        <div class="lbl" style="margin-top:18px">Medir a acústica da igreja</div>
+        <div class="note" style="margin-top:0">O app toca um <b>ruído rosa</b> (um chiado com todas as frequências por igual) pelo som da igreja e escuta pelo microfone do tablet. A diferença entre o que saiu e o que chegou é a "assinatura" da igreja (caixas + sala + microfone do tablet). Depois, as análises descontam essa assinatura e a IA recebe essa informação.</div>
+        <button class="btn primary big" id="btnSala" style="margin-top:10px">Medir a igreja</button>
+        <div class="row" style="display:flex;gap:8px;margin-top:8px"><button class="btn small" id="btnSalaMais">Medir mais um ponto (média)</button><button class="btn small" id="btnSalaApagar">Apagar medição</button></div>
+        <div class="switch"><span>Descontar a acústica da igreja nas análises</span><input type="checkbox" id="cfgComp" checked></div>
+        <div id="salaRes"></div>
       </div>
 
       <div class="tab" id="tCfg">
@@ -224,7 +251,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 </script>
 <script>
 (() => {
-const VERSAO = '1.5 · 07/11/2026';
+const VERSAO = '1.7 · 07/11/2026';
 const C = Core, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('som.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -235,6 +262,7 @@ const S = {
   wake: LS.get('wake', true), key: LS.get('key', ''), model: LS.get('model', 'claude-sonnet-5-5'),
   profiles: LS.get('profiles', {}),
   input: LS.get('input', ''), linha: LS.get('linha', false), autoSolo: LS.get('autoSolo', true), lineOk: LS.get('lineOk', null),
+  igreja: LS.get('igreja', {}), sala: LS.get('sala', null), compensar: LS.get('compensar', true),
 };
 const NCH = 14; // 12 entradas + LINE L/R
 let sel = LS.get('sel', 1);
@@ -317,6 +345,15 @@ function trackPeaks() {
   const put = (n, v) => { const db = C.vuToDb(v.pre), p = mix.peak[n] || { db: -80, t: 0 }; if (db >= p.db || now - p.t > 1500) mix.peak[n] = { db, t: now }; };
   (mix.vu.input || []).forEach((v, i) => put(i + 1, v));
   (mix.vu.line || []).forEach((v, i) => put(C.LINE_L + i, v));
+  if (live.on) {
+    const acc = (n, v) => {
+      const st = live.stats[n] || (live.stats[n] = { pre: -80, fsum: 0, cnt: 0, fmax: -80 });
+      const pre = C.vuToDb(v.pre), f = C.vuToDb(v.fader);
+      st.pre = Math.max(st.pre, pre); st.fmax = Math.max(st.fmax, f); st.fsum += Math.pow(10, f / 10); st.cnt++;
+    };
+    (mix.vu.input || []).forEach((v, i) => acc(i + 1, v));
+    (mix.vu.line || []).forEach((v, i) => acc(C.LINE_L + i, v));
+  }
 }
 // demonstração: simula uma Ui16
 function startDemo() {
@@ -587,6 +624,13 @@ function draw() {
     g.stroke();
     g.fillStyle = '#5aa9ff'; g.fillText('EQ 0 dB', W - 60, mid - 4);
   }
+  // curva da igreja (mesma escala do EQ)
+  if (salaAtiva()) {
+    const mid = (top + bot) / 2, sc = (bot - top) / 2 / 18;
+    g.setLineDash([3, 4]); g.strokeStyle = '#b48cff'; g.lineWidth = 2; g.beginPath();
+    C.THIRD.forEach((f, i) => { const x = fx(f, W, pad), y = mid - Math.max(-18, Math.min(18, S.sala.curva[i])) * sc; i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.stroke(); g.setLineDash([]);
+  }
   // marcador de microfonia
   if (fb.on && fb.cur) { const x = fx(fb.cur.freq, W, pad); g.fillStyle = 'rgba(255,92,92,.25)'; g.fillRect(x - 6, top, 12, bot - top); }
 }
@@ -674,6 +718,7 @@ function onFrame() {
     if (t - cap.t0 >= cap.dur) finishAnalysis();
   }
   if (fb.on) feedbackFrame(t);
+  if (live.on) liveFrame(t);
 }
 function finishAnalysis() {
   cap.on = false;
@@ -700,16 +745,18 @@ function finishAnalysis() {
   }
   const quiet = 10 * Math.log10(maxE + 1e-20) < -65 || cap.tdPeak < 0.01;
   const clip = cap.tdPeak > 0.98;
-  const bands = C.thirdOctave(pow, sr, N);
+  const bandsRaw = C.thirdOctave(pow, sr, N);
+  const comp = salaAtiva() && !S.linha;
+  const bands = comp ? bandsRaw.map((b, i) => b - (S.sala.ok[i] ? S.sala.curva[i] : 0)) : bandsRaw;
   // zumbido é constante: aparece no "piso" (mínimo por frequência ao longo de todos os quadros)
   // usa o percentil 20 de cada frequência (só até 300 Hz, que é onde o zumbido mora)
   const floorDb = new Float32Array(n).fill(-140), kMax = Math.min(n - 1, Math.ceil(320 / (sr / N)));
   for (let k = 0; k <= kMax; k++) { const v = frames.map(f => f.fr[k]).sort((x, y) => x - y); floorDb[k] = v[Math.floor(v.length * 0.2)]; }
   const hum = C.detectHum(floorDb, sr, N);
-  const res = { hum, bands, rings: rings.slice(0, 2), peakPreDb: connected() && mix.vu ? cap.peakPre : null, perfil: cap.perfil, frames: use.length, quiet, clip, linha: S.linha, t: Date.now() };
+  const res = { hum, bands, bandsRaw, comp, rings: rings.slice(0, 2), peakPreDb: connected() && mix.vu ? cap.peakPre : null, perfil: cap.perfil, frames: use.length, quiet, clip, linha: S.linha, t: Date.now() };
   lastAnalysis[cap.ch] = res;
   const canal = connected() ? chInfo(cap.ch) : null;
-  lastSug[cap.ch] = C.suggest(res, cap.perfil, canal, { micLowCut: S.linha ? 50 : 80 }).sugestoes.map(s => ({ ...s, feito: false }));
+  lastSug[cap.ch] = C.suggest(res, cap.perfil, canal, { micLowCut: S.linha ? 50 : (comp ? 45 : 80) }).sugestoes.map(s => ({ ...s, feito: false }));
   log(`Análise do canal ${cap.ch}: ${use.length} quadros úteis, ${lastSug[cap.ch].length} sugestões`);
   if (cap.ch === sel) renderSug();
 }
@@ -721,6 +768,7 @@ function renderSug() {
     : `<b>Como fazer:</b> na passagem de som, peça para <b>só esse instrumento ou voz</b> tocar (os outros em silêncio). Fique com o tablet no meio da igreja, na altura da cabeça, e toque em Analisar.`;
   if (!an || !list) { box.innerHTML = ''; return; }
   let html = '';
+  if (an.comp && S.sala) html += `<div class="note">Análise já <b>descontando a acústica da igreja</b> medida em ${esc(new Date(S.sala.quando).toLocaleDateString('pt-BR'))}.</div>`;
   if (an.clip) html += `<div class="note"><b>O sinal chegou distorcido</b> na entrada do tablet. Abaixe o volume PHONES da mesa e analise de novo; o resultado pode estar errado.</div>`;
   if (an.quiet) html += an.linha
     ? `<div class="note"><b>Quase nenhum sinal chegou da mesa.</b> Confira o cabo, o volume de fone, se o músico estava tocando e se o canal está em solo.</div>`
@@ -740,7 +788,7 @@ function renderSug() {
 }
 function renderProfiles() {
   const cur = profOf(sel);
-  $('#profChips').innerHTML = Object.entries(C.PROFILES).map(([k, p]) => `<button class="chip ${k === cur ? 'on' : ''}" data-p="${k}">${esc(p.nome)}</button>`).join('');
+  $('#profChips').innerHTML = Object.entries(C.PROFILES).filter(([, p]) => !p.oculto).map(([k, p]) => `<button class="chip ${k === cur ? 'on' : ''}" data-p="${k}">${esc(p.nome)}</button>`).join('');
   $$('#profChips .chip').forEach(b => b.onclick = () => { S.profiles[sel] = b.dataset.p; LS.set('profiles', S.profiles); renderProfiles(); renderChannels(); renderHeader(); renderSug(); });
 }
 
@@ -778,6 +826,7 @@ function renderFb() {
 // ---------------- IA ----------------
 const SYS = `Você é um técnico de som experiente que ajuda o operador voluntário de uma igreja evangélica brasileira. A mesa é uma Soundcraft Ui16 (12 entradas mais a LINE IN estéreo L/R — os "canais" 13 e 14, sem ganho remoto —, EQ paramétrico de 4 bandas por canal com frequência 20 Hz–20 kHz, ganho ±20 dB e Q 0,05–15; filtro passa-altas 20 Hz–1 kHz; compressor, gate e de-esser por canal; EQ gráfico de 31 bandas e AFS2 nas saídas).
 Responda em português do Brasil, de forma curta, prática e calma, como quem explica para um voluntário durante a passagem de som ou o culto. Use os dados de medição e o estado da mesa enviados no contexto. Prefira cortes a reforços, mudanças pequenas (no máximo -9 dB / +4 dB), uma coisa de cada vez, e lembre de checar ganho e posição do microfone antes de equalizar. Se faltar informação, faça no máximo uma pergunta.
+Se vier a descrição da igreja ("igreja") e/ou a "assinatura_da_igreja_db" (resposta medida com ruído rosa: caixas + sala + microfone do tablet; 0 = neutro, positivo = a sala reforça), leve em conta a acústica: separe o que é problema da sala (EQ gráfico do Master, posição das caixas, volume geral) do que é problema do canal. Os desvios da medição do canal já vêm descontados da assinatura quando "medicao_descontada_da_igreja" for true.
 Quando recomendar ajustes concretos no canal selecionado, termine a resposta com um bloco de código json no formato:
 \`\`\`json
 {"acoes":[{"tipo":"banda","freq":315,"ganho":-4,"q":1.4},{"tipo":"hpf","freq":120},{"tipo":"ganho","valor":28}]}
@@ -797,11 +846,13 @@ function context() {
       fonte: an.linha ? 'sinal elétrico do canal em solo (saída de fone da mesa, pós-EQ se AFL) — não inclui a acústica da igreja' : 'microfone do tablet na plateia — inclui a acústica da igreja',
       obs: 'desvio em dB por banda de 1/3 de oitava em relação ao equilíbrio ideal do perfil (positivo = sobrando). Com o microfone do tablet, abaixo de ~80 Hz a medição é pouco confiável.',
       perfil_usado: C.PROFILES[an.perfil].nome,
+      medicao_descontada_da_igreja: !!an.comp,
       desvios: Object.fromEntries(C.THIRD.map((f, i) => [f + 'Hz', Math.round(dev[i] * 10) / 10])),
       ressonancias: an.rings.map(r => ({ freq_hz: Math.round(r.freq), destaque_db: Math.round(r.prom) })),
       sugestoes_automaticas: (lastSug[sel] || []).map(s => s.titulo),
     };
   }
+  Object.assign(ctx, igrejaCtx());
   if (fb.list.length) ctx.microfonias_detectadas_hz = fb.list.map(x => x.freq);
   return ctx;
 }
@@ -813,19 +864,285 @@ function renderChat() {
     const acts = (m.acoes || []).map((a, j) => `<button class="btn small primary" data-ia="${i}:${j}" ${connected() && !S.lock ? '' : 'disabled'}>${a.feito ? '✓ ' : ''}${esc(describeAction(a, sel).replace(/ de \d+ · [^ ]+| de LINE [LR]| na banda \d+/g, ''))}</button>`).join('');
     return `<div class="msg ai ${m.err ? 'err' : ''}">${t}${acts ? `<div class="row" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${acts}</div>` : ''}</div>`;
   }).join('');
-  $$('#chat [data-ia]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.ia.split(':').map(Number); const a = chatHist[i].acoes[j]; applyAction(a, sel, () => { a.feito = true; renderChat(); }); });
+  $$('#chat [data-ia]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.ia.split(':').map(Number); const a = chatHist[i].acoes[j]; applyAction(a, a.canal || sel, () => { a.feito = true; renderChat(); }); });
   const t = $('#tIa'); t.scrollTop = t.scrollHeight;
+}
+function validAction(a) {
+  if (!a || typeof a !== 'object') return null;
+  const canal = Number.isInteger(a.canal) && a.canal >= 1 && a.canal <= NCH ? a.canal : undefined;
+  if (a.tipo === 'banda' && a.freq >= 20 && a.freq <= 20000 && Math.abs(a.ganho) <= 12 && a.q > 0)
+    return { tipo: 'banda', freq: C.roundHz(a.freq), ganho: C.clamp(Math.round(a.ganho * 2) / 2, -9, 4), q: C.clamp(Math.round(a.q * 10) / 10, 0.3, 10), canal };
+  if (a.tipo === 'hpf' && a.freq >= 20 && a.freq <= 1000) return { tipo: 'hpf', freq: Math.round(a.freq), canal };
+  if (a.tipo === 'ganho' && a.valor >= -40 && a.valor <= 50) return { tipo: 'ganho', valor: Math.round(a.valor * 2) / 2, canal };
+  return null;
 }
 function parseActions(text) {
   const m = text.match(/```json\s*([\s\S]*?)```/); if (!m) return [];
+  try { return (JSON.parse(m[1]).acoes || []).map(validAction).filter(Boolean).slice(0, 4); } catch { return []; }
+}
+async function callClaude(system, messages, maxTokens) {
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-api-key': S.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({ model: S.model, max_tokens: maxTokens, system, messages }),
+  });
+  let j = {}; try { j = await r.json(); } catch {}
+  if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+  return (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+}
+
+// ---------------- igreja: descrição e medição ----------------
+const IGR_CAMPOS = [
+  ['nome', 'Nome da igreja', 'text', ''],
+  ['comprimento', 'Comprimento (m)', 'number', ''], ['largura', 'Largura (m)', 'number', ''], ['altura', 'Altura do teto (m)', 'number', ''],
+  ['teto', 'Teto / forro', ['', 'Laje de concreto', 'Forro de PVC', 'Forro de gesso', 'Madeira', 'Telha ou metal aparente', 'Outro']],
+  ['paredes', 'Paredes', ['', 'Alvenaria lisa / pintada', 'Muito vidro ou azulejo', 'Madeira', 'Com tratamento acústico', 'Misto']],
+  ['piso', 'Piso', ['', 'Cerâmica / porcelanato', 'Cimento queimado', 'Madeira', 'Carpete']],
+  ['assentos', 'Assentos', ['', 'Bancos de madeira', 'Bancos estofados', 'Cadeiras plásticas', 'Cadeiras estofadas']],
+  ['publico', 'Pessoas num culto normal', 'number', ''], ['capacidade', 'Capacidade', 'number', ''],
+  ['caixas', 'Caixas de som (quantas, tipo, onde ficam)', 'text', 'ex.: 2 ativas 15" na frente, nas laterais do púlpito'],
+  ['sub', 'Subwoofer', ['', 'Não tem', 'Tem, na frente', 'Tem, no chão no centro', 'Tem, em outro lugar']],
+  ['retorno', 'Retorno da banda', 'text', 'ex.: 2 caixas de retorno no chão / fones'],
+  ['mesa', 'Onde fica a mesa de som', ['', 'No fundo da igreja', 'Na lateral', 'Na frente / no palco', 'Em outra sala']],
+  ['obs', 'O que você percebe na acústica', 'area', 'ex.: eco no fundo, grave embola na frente, voz some no meio da igreja'],
+];
+function renderIgreja() {
+  const v = S.igreja || {};
+  const field = ([k, rot, tipo, ph]) => {
+    const val = esc(v[k] || '');
+    if (Array.isArray(tipo)) return `<label>${rot}</label><select data-ig="${k}">${tipo.map(o => `<option ${o === v[k] ? 'selected' : ''} value="${esc(o)}">${o || '—'}</option>`).join('')}</select>`;
+    if (tipo === 'area') return `<label>${rot}</label><textarea data-ig="${k}" rows="3" placeholder="${esc(ph)}">${val}</textarea>`;
+    return `<label>${rot}</label><input data-ig="${k}" type="${tipo}" inputmode="${tipo === 'number' ? 'decimal' : 'text'}" placeholder="${esc(ph)}" value="${val}">`;
+  };
+  const dimKeys = ['comprimento', 'largura', 'altura'];
+  $('#igrForm').innerHTML = field(IGR_CAMPOS[0]) +
+    `<div class="form2">${IGR_CAMPOS.filter(c => dimKeys.includes(c[0])).map(d => `<div>${field(d)}</div>`).join('')}</div>` +
+    IGR_CAMPOS.filter(c => c[0] !== 'nome' && !dimKeys.includes(c[0])).map(field).join('');
+  $$('#igrForm [data-ig]').forEach(el => el.onchange = () => { S.igreja = { ...S.igreja, [el.dataset.ig]: el.value.trim() }; LS.set('igreja', S.igreja); });
+  renderSala();
+}
+function salaAtiva() { return !!(S.sala && S.compensar && S.sala.curva); }
+function igrejaCtx() {
+  const o = {}, v = S.igreja || {}, ig = {};
+  IGR_CAMPOS.forEach(([k, rot]) => { if (v[k]) ig[rot] = v[k]; });
+  const c = +v.comprimento, l = +v.largura, h = +v.altura;
+  if (c && l && h) ig['Volume aproximado (m³)'] = Math.round(c * l * h);
+  if (Object.keys(ig).length) o.igreja = ig;
+  if (S.sala && S.sala.curva) o.assinatura_da_igreja_db = Object.fromEntries(C.THIRD.map((f, i) => [f + 'Hz', S.sala.ok[i] ? Math.round(S.sala.curva[i] * 10) / 10 : 'sem medida']));
+  return o;
+}
+function captureBands(ms) {
+  return new Promise(res => {
+    const n = A.an.frequencyBinCount, pow = new Float64Array(n), buf = new Float32Array(n); let cnt = 0;
+    const iv = setInterval(() => { A.an.getFloatFrequencyData(buf); for (let k = 0; k < n; k++) pow[k] += Math.pow(10, buf[k] / 10); cnt++; }, 40);
+    setTimeout(() => { clearInterval(iv); for (let k = 0; k < n; k++) pow[k] /= Math.max(1, cnt); res(C.thirdOctave(pow, A.ctx.sampleRate, A.an.fftSize)); }, ms);
+  });
+}
+// ruído rosa (filtro de Paul Kellet) tocado pela saída do aparelho
+function pinkNoise(ctx) {
+  const len = ctx.sampleRate * 4, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+  let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0, pk = 0;
+  for (let i = 0; i < len; i++) {
+    const w = Math.random() * 2 - 1;
+    b0 = 0.99886 * b0 + w * 0.0555179; b1 = 0.99332 * b1 + w * 0.0750759; b2 = 0.96900 * b2 + w * 0.1538520;
+    b3 = 0.86650 * b3 + w * 0.3104856; b4 = 0.55000 * b4 + w * 0.5329522; b5 = -0.7616 * b5 - w * 0.0168980;
+    d[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + w * 0.5362; b6 = w * 0.115926; pk = Math.max(pk, Math.abs(d[i]));
+  }
+  for (let i = 0; i < len; i++) d[i] = d[i] / pk * 0.7;
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(0.8, ctx.currentTime + 1.5);
+  src.connect(g); g.connect(ctx.destination); src.start();
+  return { stop() { try { g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setValueAtTime(g.gain.value, ctx.currentTime); g.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3); setTimeout(() => src.stop(), 400); } catch {} } };
+}
+async function medirSala(somar) {
+  if (S.linha) { toast('Desligue "O som vem da mesa" em Ajustes: a medição usa o microfone do aparelho'); return; }
+  if (!A.on) { await startMic(); if (!A.on) return; }
+  if (!(await confirmDlg('Preparar a medição', 'Ligue a saída de fone deste aparelho num canal da mesa (o cabo P2 → P10 que você já tem serve), com o fader em 0 dB e o EQ reto. Baixe o volume do Master. Fique com o aparelho no meio da igreja, na altura da cabeça, longe de paredes. Os outros canais fechados e a igreja em silêncio.', 'Continuar'))) return;
+  toast('Medindo o silêncio…'); const fundo = await captureBands(2500);
+  const ruido = pinkNoise(A.ctx);
+  const ok1 = await confirmDlg('Ruído tocando', 'Agora deve sair um chiado nas caixas. Suba o Master devagar até ficar mais ou menos tão forte quanto o louvor (sem exagero). Depois toque em Medir e não faça barulho por 8 segundos.', 'Medir');
+  if (!ok1) { ruido.stop(); return; }
+  toast('Medindo… silêncio por 8 segundos'); const med = await captureBands(8000);
+  ruido.stop();
+  const ok = med.map((v, i) => v - fundo[i] >= 10);
+  if (ok.filter(Boolean).length < 15) { showInfo('O ruído não chegou forte o suficiente', 'Em muitas frequências o chiado ficou perto do barulho de fundo. Confira se o som saiu nas caixas (cabo, canal aberto, Master) e meça de novo com um pouco mais de volume.'); return; }
+  const idx = C.THIRD.map((f, i) => i).filter(i => C.THIRD[i] >= 200 && C.THIRD[i] <= 5000 && ok[i]);
+  const ref = idx.map(i => med[i]).sort((a, b) => a - b)[Math.floor(idx.length / 2)];
+  let curva = med.map((v, i) => (ok[i] ? C.clamp(v - ref, -18, 18) : 0));
+  let pontos = 1;
+  if (somar && S.sala && S.sala.curva) {
+    pontos = S.sala.pontos + 1;
+    curva = curva.map((v, i) => (ok[i] && S.sala.ok[i] ? (S.sala.curva[i] * S.sala.pontos + v) / pontos : ok[i] ? v : S.sala.curva[i]));
+    for (let i = 0; i < ok.length; i++) ok[i] = ok[i] || S.sala.ok[i];
+  }
+  S.sala = { curva, ok, pontos, quando: Date.now() }; LS.set('sala', S.sala);
+  log(`Igreja medida (${pontos} ponto(s))`); toast('Medição da igreja salva'); renderSala();
+}
+function renderSala() {
+  const el = $('#salaRes'); if (!el) return;
+  $('#btnSalaMais').disabled = !S.sala; $('#btnSalaApagar').disabled = !S.sala;
+  if (!S.sala) { el.innerHTML = '<div class="note">Ainda não medida.</div>'; return; }
+  const fx = C.roomFixes(S.sala.curva, S.sala.ok);
+  el.innerHTML = `<div class="note">Medida em ${esc(new Date(S.sala.quando).toLocaleString('pt-BR'))} · ${S.sala.pontos} ponto(s). A curva roxa no gráfico é a assinatura da igreja.</div>` +
+    (fx.length ? fx.map(x => x.tipo === 'corte'
+      ? `<div class="card"><span class="tag">EQ gráfico do Master</span><h4>Cortar ${Math.abs(x.db)} dB em ${C.fmtHz(x.freq)}</h4><p>A igreja reforça ${x.excesso.toFixed(0)} dB nessa região. Faça no <b>EQ gráfico do Master</b> da Ui16 (o app não mexe no Master). Vale para tudo que passa no som.</p></div>`
+      : `<div class="card"><span class="tag">Vale</span><h4>Falta ${Math.abs(x.falta).toFixed(0)} dB em ${C.fmtHz(x.freq)}</h4><p>Provavelmente é cancelamento da própria sala nesse ponto. <b>Não compense reforçando no EQ</b> (só gera mais microfonia). Meça em outro ponto: se o vale sumir, é só daquele lugar.</p></div>`).join('')
+      : '<div class="card done"><h4>Igreja bem equilibrada 👍</h4><p>Nenhum pico ou vale grande na medição.</p></div>');
+}
+
+// ---------------- acompanhamento ao vivo ----------------
+const MOMENTOS = { louvor: 'Louvor (banda e vozes)', pregacao: 'Pregação', playback: 'Playback / vídeo', ensaio: 'Ensaio / passagem de som', outro: 'Outro (avisos, oração…)' };
+const live = { on: false, secs: [], cur: null, stats: {}, feed: [], calls: 0, next: 0, busy: false, det: null, hist: [], lastFb: {},
+  momento: LS.get('momento', 'louvor'), every: LS.get('every', 60) };
+const LIVE_SYS = `Você é um técnico de som experiente acompanhando AO VIVO o som de uma igreja evangélica brasileira, ao lado do operador voluntário. A mesa é uma Soundcraft Ui16 (canais 1–12 de entrada, 13 e 14 = LINE IN estéreo sem ganho remoto; EQ paramétrico de 4 bandas, filtro passa-altas, compressor, gate e de-esser por canal).
+A cada leitura você recebe um JSON com: o momento do culto; o desvio do som da igreja em cada 1/3 de oitava em relação a uma curva equilibrada (positivo = sobrando); o nível de cada canal ativo na mesa (pico na entrada e nível depois do fader) com o EQ atual; microfonias detectadas; e as suas sugestões anteriores (com indicação se o operador aplicou).
+Regras:
+- Só sugira algo se houver um problema claro e audível. Na dúvida, diga que está bom. Variações de até ~4 dB nos desvios são normais.
+- No máximo 2 sugestões por leitura, a mais importante primeiro. Mudanças pequenas e seguras para um culto em andamento (corte até -6 dB, reforço até +3 dB, nada de mexer muito em ganho com o canal aberto).
+- Prefira agir no canal que causa o problema (use o nível pós-fader e o perfil de cada canal para descobrir). Em geral, problemas de voz e clareza são o mais importante na pregação; equilíbrio entre banda e vozes no louvor.
+- Não repita uma sugestão anterior que o operador não aplicou, a não ser que o problema tenha piorado.
+- Abaixo de ~80 Hz a medição pelo microfone do tablet é pouco confiável.
+- Considere ajustes de fader/volume quando for o caso (só como texto, sem ação).
+- Se vier "igreja" (descrição da sala) e/ou "assinatura_da_igreja_db" (resposta medida com ruído rosa: caixas + sala + microfone, 0 = neutro, positivo = a sala reforça), use para separar o que é problema da sala (EQ gráfico do Master, posição das caixas, volume — só como texto) do que é problema de um canal. Os "desvios" são o que o povo ouve (sem desconto).
+Responda SOMENTE com um JSON válido, sem texto fora dele, no formato:
+{"status":"ok" ou "ajustar","resumo":"uma frase curta em português sobre como está o som","sugestoes":[{"texto":"instrução curta e prática em português","canal":3,"acao":{"tipo":"banda","freq":250,"ganho":-3,"q":1.4}}]}
+"acao" é opcional (use null quando for algo manual, como volume). Tipos de ação: {"tipo":"banda","freq","ganho","q"}, {"tipo":"hpf","freq"}, {"tipo":"ganho","valor"} (ganho de entrada em dB).`;
+
+function liveFrame(t) {
+  const raw = A.raw, n = raw.length, sr = A.ctx.sampleRate, N = A.an.fftSize;
+  const pow = new Float64Array(n); let e = 0;
+  for (let k = 0; k < n; k++) { const v = Math.pow(10, raw[k] / 10); pow[k] = v; if (k > 3) e += v; }
+  const bands = C.thirdOctave(pow, sr, N);
+  const sec = Math.floor(t / 1000);
+  if (!live.cur || live.cur.sec !== sec) {
+    if (live.cur && live.cur.cnt) {
+      live.secs.push({ bands: Array.from(live.cur.acc, v => 10 * Math.log10(v / live.cur.cnt + 1e-20)), level: 10 * Math.log10(live.cur.e / live.cur.cnt + 1e-20) });
+      if (live.secs.length > 180) live.secs.shift();
+    }
+    live.cur = { sec, acc: new Float64Array(bands.length), cnt: 0, e: 0 };
+  }
+  bands.forEach((b, i) => { live.cur.acc[i] += Math.pow(10, b / 10); }); live.cur.cnt++; live.cur.e += e;
+  const ev = live.det.update(raw, sr, N, t);
+  if (ev) liveFeedback(ev);
+}
+function loudestMicChannel() {
+  let best = null, bv = -999;
+  for (let n = 1; n <= C.NIN; n++) {
+    const st = live.stats[n]; if (!st || !st.cnt) continue;
+    const v = 10 * Math.log10(st.fsum / st.cnt + 1e-20);
+    const p = profOf(n);
+    if (p && !['pregacao', 'vozFem', 'vozMasc', 'coro', 'violao'].includes(p)) continue;
+    if (v > bv) { bv = v; best = n; }
+  }
+  return best || sel;
+}
+function liveFeedback(ev) {
+  const f = C.roundHz(ev.freq), key = Math.round(Math.log2(f) * 24), now = Date.now();
+  if (live.lastFb[key] && now - live.lastFb[key] < 15000) return;
+  live.lastFb[key] = now;
+  const ch = loudestMicChannel();
+  live.fbPeriod = (live.fbPeriod || []).concat(f);
+  live.feed.unshift({ t: now, kind: 'fb', status: 'ajustar', resumo: `Microfonia em ${C.fmtHz(f)} (nota ${C.noteName(f)})`,
+    sugestoes: [{ texto: `Corte estreito de -6 dB em ${C.fmtHz(f)}. Canal provável: ${chLabel(ch)} (o microfone mais aberto agora). Se não for ele, abaixe o fader de quem estiver perto das caixas.`, acao: { tipo: 'banda', freq: f, ganho: -6, q: 8, canal: ch } }] });
+  if (navigator.vibrate) navigator.vibrate([150, 80, 150]);
+  renderLive();
+}
+function liveSummary() {
+  const janela = live.secs.slice(-live.every);
+  if (!janela.length) return null;
+  const maxL = Math.max(...janela.map(x => x.level));
+  const som = janela.filter(x => x.level > maxL - 15 && x.level > -75);
+  if (som.length < Math.min(8, live.every / 3)) return null;
+  const nb = C.THIRD.length, acc = new Float64Array(nb);
+  som.forEach(x => x.bands.forEach((b, i) => { acc[i] += Math.pow(10, b / 10) / som.length; }));
+  const bands = Array.from(acc, v => 10 * Math.log10(v + 1e-20));
+  const { dev } = C.deviations(bands, C.PROFILES.mix);
+  const canais = [];
+  for (let n = 1; n <= NCH; n++) {
+    const st = live.stats[n]; if (!st || !st.cnt) continue;
+    const pos = 10 * Math.log10(st.fsum / st.cnt + 1e-20);
+    if (pos < -50 && st.pre < -40) continue;
+    const c = connected() ? chInfo(n) : null;
+    canais.push({ canal: n, nome: chName(n), perfil: profOf(n) ? C.PROFILES[profOf(n)].nome : 'não definido',
+      pico_entrada_dbfs: Math.round(st.pre), nivel_medio_pos_fader_dbfs: Math.round(pos),
+      passa_altas: c ? (c.hpf.freq <= 21 ? 'desligado' : c.hpf.freq + ' Hz') : undefined,
+      eq: c ? c.bands.filter(b => Math.abs(b.gain) >= 0.5).map(b => `${b.freq} Hz ${b.gain > 0 ? '+' : ''}${b.gain} dB Q${b.q}`) : undefined,
+      ganho_entrada_db: c ? c.gainDb : undefined });
+  }
+  canais.sort((a, b) => b.nivel_medio_pos_fader_dbfs - a.nivel_medio_pos_fader_dbfs);
+  return {
+    momento: MOMENTOS[live.momento], fonte_do_audio: S.linha ? 'saída PHONES da mesa (mix, sem a acústica da igreja)' : 'microfone do tablet dentro da igreja',
+    segundos_com_som: som.length,
+    nivel_medio_dbfs_no_tablet: Math.round(10 * Math.log10(som.reduce((s, x) => s + Math.pow(10, x.level / 10), 0) / som.length)),
+    desvios_por_terco_de_oitava_db: Object.fromEntries(C.THIRD.map((f, i) => [f + 'Hz', Math.round(dev[i] * 10) / 10])),
+    canais_ativos: connected() ? canais : 'mesa desconectada',
+    microfonias_no_periodo_hz: live.fbPeriod || [],
+    sugestoes_anteriores: live.hist.slice(-4),
+    ...igrejaCtx(),
+  };
+}
+async function liveTick() {
+  if (!live.on || live.busy) return;
+  live.next = Date.now() + live.every * 1000;
+  const resumo = liveSummary();
+  live.stats = {}; live.fbPeriod = [];
+  if (!resumo) { live.status = 'Pouco som no último intervalo; nada para analisar.'; renderLive(); return; }
+  if (!S.key) { live.status = 'Sem chave da API: só os avisos de microfonia funcionam. Coloque a chave em Ajustes.'; renderLive(); return; }
+  live.busy = true; live.status = 'A IA está analisando…'; renderLive();
   try {
-    const j = JSON.parse(m[1]);
-    return (j.acoes || []).filter(a =>
-      (a.tipo === 'banda' && a.freq >= 20 && a.freq <= 20000 && Math.abs(a.ganho) <= 12 && a.q > 0) ||
-      (a.tipo === 'hpf' && a.freq >= 20 && a.freq <= 1000) ||
-      (a.tipo === 'ganho' && a.valor >= -40 && a.valor <= 50)).slice(0, 4)
-      .map(a => a.tipo === 'banda' ? { tipo: 'banda', freq: C.roundHz(a.freq), ganho: C.clamp(Math.round(a.ganho * 2) / 2, -9, 4), q: C.clamp(Math.round(a.q * 10) / 10, 0.3, 10) } : a);
-  } catch { return []; }
+    const text = await callClaude(LIVE_SYS, [{ role: 'user', content: JSON.stringify(resumo) }], 700);
+    live.calls++;
+    const m = text.match(/\{[\s\S]*\}/); const j = JSON.parse(m ? m[0] : text);
+    const sugestoes = (Array.isArray(j.sugestoes) ? j.sugestoes : []).slice(0, 2).map(x => {
+      const ac = validAction(x.acao ? { ...x.acao, canal: x.canal } : null);
+      return { texto: String(x.texto || ''), acao: ac && ac.canal ? ac : null };
+    }).filter(x => x.texto);
+    const item = { t: Date.now(), kind: 'ia', status: j.status === 'ok' && !sugestoes.length ? 'ok' : 'ajustar', resumo: String(j.resumo || ''), sugestoes };
+    live.feed.unshift(item);
+    sugestoes.forEach(x => live.hist.push({ texto: x.texto, aplicada: false, ref: x }));
+    live.status = '';
+  } catch (e) {
+    live.status = 'Não consegui falar com a IA: ' + e.message + (navigator.onLine ? '' : ' (sem internet)');
+  }
+  live.busy = false;
+  if (live.feed.length > 30) live.feed.length = 30;
+  renderLive();
+}
+function toggleLive() {
+  if (live.on) { live.on = false; clearInterval(live.timer); live.status = 'Parado.'; renderLive(); return; }
+  const go = () => {
+    live.on = true; live.secs = []; live.cur = null; live.stats = {}; live.fbPeriod = [];
+    live.det = C.FeedbackDetector({ holdMs: 400, minProm: 16, minDb: -75 });
+    live.next = Date.now() + live.every * 1000; live.status = '';
+    clearInterval(live.timer); live.timer = setInterval(() => { if (Date.now() >= live.next) liveTick(); else renderLiveStatus(); }, 1000);
+    keepAwake(); renderLive();
+  };
+  if (!A.on) { startMic().then(() => { if (A.on) go(); }); } else go();
+}
+function renderLiveStatus() {
+  const el = $('#liveStatus'); if (!el) return;
+  if (!live.on) { el.textContent = live.status || ''; return; }
+  const s = Math.max(0, Math.round((live.next - Date.now()) / 1000));
+  el.textContent = (live.status ? live.status + ' · ' : '') + (live.busy ? '' : `Próxima leitura em ${s}s`) + ` · ${live.calls} leitura(s) da IA` + (connected() ? '' : ' · mesa desconectada (a IA não vê os canais)');
+}
+function renderLive() {
+  $('#btnLive').textContent = live.on ? 'Parar acompanhamento' : 'Começar a acompanhar';
+  $('#btnLive').classList.toggle('primary', !live.on);
+  $('#liveMoment').innerHTML = Object.entries(MOMENTOS).map(([k, v]) => `<button class="chip ${k === live.momento ? 'on' : ''}" data-m="${k}">${v}</button>`).join('');
+  $$('#liveMoment .chip').forEach(b => b.onclick = () => { live.momento = b.dataset.m; LS.set('momento', live.momento); renderLive(); });
+  $('#liveEvery').innerHTML = [30, 60, 120].map(v => `<button class="chip ${v === live.every ? 'on' : ''}" data-e="${v}">${v < 60 ? v + ' s' : v / 60 + ' min'}</button>`).join('');
+  $$('#liveEvery .chip').forEach(b => b.onclick = () => { live.every = +b.dataset.e; LS.set('every', live.every); live.next = Math.min(live.next || Infinity, Date.now() + live.every * 1000); renderLive(); });
+  renderLiveStatus();
+  $('#liveFeed').innerHTML = live.feed.slice(0, 12).map((it, i) => {
+    const hora = new Date(it.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const icon = it.kind === 'fb' ? '🔴' : it.status === 'ok' ? '✅' : '⚠️';
+    return `<div class="card ${it.status === 'ok' ? 'done' : ''}"><span class="tag">${hora} · ${it.kind === 'fb' ? 'Microfonia' : 'IA'}</span><h4>${icon} ${esc(it.resumo || (it.status === 'ok' ? 'Som equilibrado' : 'Ajuste sugerido'))}</h4>
+      ${it.sugestoes.map((x, j) => `<p>${esc(x.texto)}</p>${x.acao && !S.lock ? `<div class="row" style="margin-bottom:8px"><button class="btn small primary" data-lv="${i}:${j}" ${connected() && !x.feito ? '' : 'disabled'}>${x.feito ? 'Aplicado ✓' : esc(describeAction(x.acao, x.acao.canal))}</button></div>` : ''}`).join('')}</div>`;
+  }).join('');
+  $$('#liveFeed [data-lv]').forEach(b => b.onclick = () => {
+    const [i, j] = b.dataset.lv.split(':').map(Number); const x = live.feed[i].sugestoes[j];
+    applyAction(x.acao, x.acao.canal, () => { x.feito = true; const h = live.hist.find(h => h.ref === x); if (h) h.aplicada = true; renderLive(); });
+  });
 }
 async function ask(q) {
   q = (q || '').trim(); if (!q) return;
@@ -836,15 +1153,8 @@ async function ask(q) {
   renderChat(); $('#btnAsk').disabled = true;
   try {
     const msgs = chatHist.filter(m => !m.pending && !m.err).map(m => ({ role: m.role, content: m.content })).slice(-12);
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', 'x-api-key': S.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
-      body: JSON.stringify({ model: S.model, max_tokens: 1200, system: SYS, messages: msgs }),
-    });
-    const j = await r.json();
+    const text = await callClaude(SYS, msgs, 1200);
     chatHist.pop();
-    if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
-    const text = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
     chatHist.push({ role: 'assistant', content: text, acoes: parseActions(text) });
   } catch (e) {
     if (chatHist.length && chatHist[chatHist.length - 1].pending) chatHist.pop();
@@ -872,6 +1182,9 @@ $('#btnMic').onclick = startMic; $('#btnMic2').onclick = startMic;
 $('#btnConnect').onclick = () => (mix.status === 'off' || mix.status === 'err') && !mix.wantOpen ? connectMixer() : disconnectMixer();
 $('#btnAnalyze').onclick = startAnalysis;
 $('#btnFb').onclick = toggleFb;
+$('#btnLive').onclick = toggleLive;
+$('#btnSala').onclick = () => medirSala(false); $('#btnSalaMais').onclick = () => medirSala(true);
+$('#btnSalaApagar').onclick = async () => { if (await confirmDlg('Apagar a medição da igreja?', 'As análises voltam a usar o som sem desconto.', 'Apagar')) { S.sala = null; LS.set('sala', null); renderSala(); } };
 $('#btnFreeze').onclick = () => { A.frozen = !A.frozen; $('#btnFreeze').textContent = A.frozen ? 'Descongelar' : 'Congelar'; };
 $('#btnAsk').onclick = () => { const v = $('#iaInput').value; $('#iaInput').value = ''; ask(v); };
 $('#iaInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#btnAsk').click(); } });
@@ -885,6 +1198,7 @@ bindCfg('#cfgConfirm', 'confirm', 'checked'); bindCfg('#cfgLock', 'lock', 'check
 bindCfg('#cfgWake', 'wake', 'checked', keepAwake);
 bindCfg('#cfgLinha', 'linha', 'checked', () => { renderSug(); renderLineState(); if (A.on) $('#micTxt').textContent = S.linha ? 'Ouvindo a mesa' : 'Ouvindo a igreja'; });
 bindCfg('#cfgAutoSolo', 'autoSolo', 'checked', renderSug);
+bindCfg('#cfgComp', 'compensar', 'checked', renderSala);
 $('#btnTestIn').onclick = testInput;
 $('#cfgInput').onchange = () => {
   S.input = $('#cfgInput').value; LS.set('input', S.input);
@@ -902,11 +1216,11 @@ listInputs();
 
 window.addEventListener('beforeunload', e => { if (undo.length) { e.preventDefault(); e.returnValue = ''; } });
 
-renderChannels(); renderHeader(); renderEq(); renderProfiles(); renderSug(); setMixStatus('off', 'Mesa desconectada');
+renderChannels(); renderHeader(); renderEq(); renderProfiles(); renderSug(); renderLive(); renderIgreja(); setMixStatus('off', 'Mesa desconectada');
 if (S.demo || S.ip) connectMixer();
 requestAnimationFrame(draw);
 // ganchos para testes
-window.__som = { mix, C, lastAnalysis, lastSug, A, fb, applyAction, startAnalysis, selectCh, S, undo };
+window.__som = { medirSala, live, liveTick, mix, C, lastAnalysis, lastSug, A, fb, applyAction, startAnalysis, selectCh, S, undo };
 })();
 </script>
 </body>
