@@ -185,7 +185,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
         </div>
         <div id="liveFeed"></div>
         <div class="lbl" style="margin-top:16px">Conversa</div>
-        <div id="iaSetup" class="note" style="margin-top:0">Para usar a IA, coloque sua chave da API da Anthropic em <b>Ajustes</b>. O tablet precisa ter internet.</div>
+        <div id="iaSetup" class="note" style="margin-top:0">Para usar a IA, coloque a chave em <b>Ajustes</b> (o Google Gemini é grátis). O tablet precisa ter internet.</div>
         <div class="chips" id="iaQuick" style="margin:10px 0"></div>
         <div class="chat" id="chat"></div>
         <div class="chatbar">
@@ -221,15 +221,33 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
         <button class="btn" id="btnTestIn" style="width:100%;margin-top:8px">Testar se o app está ouvindo a mesa</button>
         <div class="note" id="lineState" style="margin-top:6px"></div>
         <div class="note" style="margin-top:6px">Com o cabo na entrada de fone do tablet, o Android troca sozinho para ele: deixe a fonte em "padrão" e só ligue a opção acima. Comece com o volume <b>PHONES</b> da Ui16 quase zerado e vá subindo devagar. Na Ui16, deixe o solo em <b>AFL</b> (pós-EQ) para o app enxergar os ajustes.</div>
-        <div class="lbl">IA (Anthropic)</div>
-        <label>Chave da API</label>
-        <input id="cfgKey" type="password" placeholder="sk-ant-..." autocomplete="off">
-        <label style="display:block;margin-top:8px">Modelo</label>
-        <select id="cfgModel">
-          <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (recomendado)</option>
-          <option value="claude-haiku-5-5">Claude Haiku 5.5 (mais rápido e barato)</option>
-          <option value="claude-opus-5-5">Claude Opus 5.5 (mais caprichado)</option>
+        <div class="lbl">IA</div>
+        <label>Qual IA usar</label>
+        <select id="cfgProv">
+          <option value="gemini">Google Gemini (grátis, com limite diário)</option>
+          <option value="claude">Anthropic Claude (pago, por uso)</option>
         </select>
+        <div id="provGemini">
+          <label style="display:block;margin-top:8px">Chave do Gemini</label>
+          <input id="cfgKeyGem" type="password" placeholder="AIza..." autocomplete="off">
+          <label style="display:block;margin-top:8px">Modelo</label>
+          <select id="cfgModelGem">
+            <option value="gemini-3.5-flash">Gemini 3.5 Flash (recomendado)</option>
+            <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash-Lite (mais leve, limite maior)</option>
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+          </select>
+          <div class="note">Pegue a chave grátis em <b>aistudio.google.com/apikey</b> (entre com sua conta Google → "Create API key"). A faixa grátis tem limite de pedidos por dia; no acompanhamento ao vivo use leitura a cada <b>2 min</b>. No plano grátis o Google pode usar o que é enviado para melhorar os produtos dele (aqui só vão dados do som e dos canais).</div>
+        </div>
+        <div id="provClaude">
+          <label style="display:block;margin-top:8px">Chave da API da Anthropic</label>
+          <input id="cfgKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+          <label style="display:block;margin-top:8px">Modelo</label>
+          <select id="cfgModel">
+            <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (recomendado)</option>
+            <option value="claude-haiku-5-5">Claude Haiku 5.5 (mais rápido e barato)</option>
+            <option value="claude-opus-5-5">Claude Opus 5.5 (mais caprichado)</option>
+          </select>
+        </div>
         <div class="lbl">Desfazer</div>
         <button class="btn" id="btnUndoAll" style="width:100%">Desfazer tudo que o app mudou na mesa</button>
         <div class="lbl">Diagnóstico do áudio</div>
@@ -252,7 +270,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 </script>
 <script>
 (() => {
-const VERSAO = '1.8 · 07/11/2026';
+const VERSAO = '1.9 · 07/11/2026';
 const C = Core, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('som.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -261,6 +279,7 @@ const LS = {
 const S = {
   ip: LS.get('ip', ''), demo: LS.get('demo', false), confirm: LS.get('confirm', true), lock: LS.get('lock', false),
   wake: LS.get('wake', true), key: LS.get('key', ''), model: LS.get('model', 'claude-sonnet-5-5'),
+  prov: LS.get('prov', LS.get('key', '') ? 'claude' : 'gemini'), keyGem: LS.get('keyGem', ''), modelGem: LS.get('modelGem', 'gemini-3.5-flash'),
   profiles: LS.get('profiles', {}),
   input: LS.get('input', ''), linha: LS.get('linha', false), autoSolo: LS.get('autoSolo', true), lineOk: LS.get('lineOk', null),
   igreja: LS.get('igreja', {}), ruidoExt: LS.get('ruidoExt', false), sala: LS.get('sala', null), compensar: LS.get('compensar', true),
@@ -858,11 +877,11 @@ function context() {
   return ctx;
 }
 function renderChat() {
-  $('#iaSetup').style.display = S.key ? 'none' : '';
+  $('#iaSetup').style.display = iaKey() ? 'none' : '';
   $('#chat').innerHTML = chatHist.map((m, i) => {
     if (m.role === 'user') return `<div class="msg me">${esc(m.show || m.content)}</div>`;
     let t = esc(m.content).replace(/```json[\s\S]*?```/g, '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').trim();
-    const acts = (m.acoes || []).map((a, j) => `<button class="btn small primary" data-ia="${i}:${j}" ${connected() && !S.lock ? '' : 'disabled'}>${a.feito ? '✓ ' : ''}${esc(describeAction(a, sel).replace(/ de \d+ · [^ ]+| de LINE [LR]| na banda \d+/g, ''))}</button>`).join('');
+    const acts = (m.acoes || []).map((a, j) => `<button class="btn small primary" data-ia="${i}:${j}" ${connected() && !S.lock ? '' : 'disabled'}>${a.feito ? '✓ ' : ''}${esc(describeAction(a, sel).replace(/ na banda \d+/, '').replace(/ de (\d+ · |LINE ).*$/, ''))}</button>`).join('');
     return `<div class="msg ai ${m.err ? 'err' : ''}">${t}${acts ? `<div class="row" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${acts}</div>` : ''}</div>`;
   }).join('');
   $$('#chat [data-ia]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.ia.split(':').map(Number); const a = chatHist[i].acoes[j]; applyAction(a, a.canal || sel, () => { a.feito = true; renderChat(); }); });
@@ -881,7 +900,28 @@ function parseActions(text) {
   const m = text.match(/```json\s*([\s\S]*?)```/); if (!m) return [];
   try { return (JSON.parse(m[1]).acoes || []).map(validAction).filter(Boolean).slice(0, 4); } catch { return []; }
 }
+async function callGemini(system, messages, maxTokens) {
+  const contents = messages.map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] }));
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(S.modelGem)}:generateContent`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-goog-api-key': S.keyGem },
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, generationConfig: { maxOutputTokens: Math.max(2048, maxTokens * 3), temperature: 0.4 } }),
+  });
+  let j = {}; try { j = await r.json(); } catch {}
+  if (!r.ok) {
+    const msg = (j.error && j.error.message) || ('HTTP ' + r.status);
+    if (r.status === 429) throw new Error('limite grátis do Gemini atingido por agora. Espere um pouco, aumente o intervalo do acompanhamento ou troque para o modelo Flash-Lite em Ajustes.');
+    if (r.status === 400 && /API key/i.test(msg)) throw new Error('chave do Gemini inválida. Confira em Ajustes.');
+    throw new Error(msg);
+  }
+  const cand = (j.candidates || [])[0];
+  const text = cand && cand.content && (cand.content.parts || []).filter(p => p.text && !p.thought).map(p => p.text).join('\n');
+  if (!text) throw new Error('o Gemini não devolveu resposta' + (cand && cand.finishReason ? ' (' + cand.finishReason + ')' : ''));
+  return text;
+}
+function iaKey() { return S.prov === 'gemini' ? S.keyGem : S.key; }
 async function callClaude(system, messages, maxTokens) {
+  if (S.prov === 'gemini') return callGemini(system, messages, maxTokens);
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': S.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
@@ -1092,7 +1132,7 @@ async function liveTick() {
   const resumo = liveSummary();
   live.stats = {}; live.fbPeriod = [];
   if (!resumo) { live.status = 'Pouco som no último intervalo; nada para analisar.'; renderLive(); return; }
-  if (!S.key) { live.status = 'Sem chave da API: só os avisos de microfonia funcionam. Coloque a chave em Ajustes.'; renderLive(); return; }
+  if (!iaKey()) { live.status = 'Sem chave da API: só os avisos de microfonia funcionam. Coloque a chave em Ajustes.'; renderLive(); return; }
   live.busy = true; live.status = 'A IA está analisando…'; renderLive();
   try {
     const text = await callClaude(LIVE_SYS, [{ role: 'user', content: JSON.stringify(resumo) }], 700);
@@ -1151,7 +1191,7 @@ function renderLive() {
 }
 async function ask(q) {
   q = (q || '').trim(); if (!q) return;
-  if (!S.key) { switchTab('tCfg'); $('#cfgKey').focus(); toast('Coloque a chave da API em Ajustes'); return; }
+  if (!iaKey()) { switchTab('tCfg'); $(S.prov === 'gemini' ? '#cfgKeyGem' : '#cfgKey').focus(); toast('Coloque a chave da API em Ajustes'); return; }
   const ctx = context();
   chatHist.push({ role: 'user', content: `Contexto atual (JSON):\n${JSON.stringify(ctx)}\n\nPergunta do operador: ${q}`, show: q });
   chatHist.push({ role: 'assistant', content: 'Pensando…', pending: true });
@@ -1198,6 +1238,9 @@ $$('#iaQuick .chip').forEach(b => b.onclick = () => ask(b.textContent + ` (canal
 $('#btnUndoAll').onclick = async () => { if (!undo.length) { toast('Nada para desfazer'); return; } if (await confirmDlg('Desfazer tudo?', `Volta ${undo.length} mudança(s) feitas pelo app.`)) { while (undo.length) undoLast(); } };
 const bindCfg = (id, key, prop = 'value', after) => { const el = $(id); el[prop] = S[key]; el.onchange = () => { S[key] = prop === 'checked' ? el.checked : el.value.trim(); LS.set(key, S[key]); after && after(); }; };
 bindCfg('#cfgIp', 'ip'); bindCfg('#cfgKey', 'key', 'value', renderChat); bindCfg('#cfgModel', 'model');
+bindCfg('#cfgKeyGem', 'keyGem', 'value', renderChat); bindCfg('#cfgModelGem', 'modelGem');
+const showProv = () => { $('#provGemini').style.display = S.prov === 'gemini' ? '' : 'none'; $('#provClaude').style.display = S.prov === 'claude' ? '' : 'none'; renderChat(); };
+bindCfg('#cfgProv', 'prov', 'value', showProv); showProv();
 bindCfg('#cfgDemo', 'demo', 'checked', () => { disconnectMixer(); connectMixer(); });
 bindCfg('#cfgConfirm', 'confirm', 'checked'); bindCfg('#cfgLock', 'lock', 'checked', () => { renderSug(); renderFb(); });
 bindCfg('#cfgWake', 'wake', 'checked', keepAwake);
