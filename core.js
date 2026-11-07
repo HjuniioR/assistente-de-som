@@ -54,16 +54,21 @@ const Core = (() => {
     setd: (p, v) => `3:::SETD^${p}^${v}`,
     alive: () => '3:::ALIVE',
   };
-  // caminhos de um canal de entrada (n = 1..12)
+  // canais: 1..12 = entradas (i.0..i.11); 13 e 14 = LINE IN L/R (l.0, l.1)
+  const NIN = 12, LINE_L = 13, LINE_R = 14;
+  const isLine = n => n >= LINE_L;
+  const cid = n => (isLine(n) ? `l.${n - LINE_L}` : `i.${n - 1}`);
   const P = {
-    ch: n => `i.${n - 1}`,
-    band: (n, b, prm) => `i.${n - 1}.eq.b${b}.${prm}`,
-    hpf: (n, prm) => `i.${n - 1}.eq.hpf.${prm}`,
-    bypass: n => `i.${n - 1}.eq.bypass`,
-    gain: n => `i.${n - 1}.gain`,
-    name: n => `i.${n - 1}.name`,
-    stereo: n => `i.${n - 1}.stereoIndex`,
+    ch: cid,
+    band: (n, b, prm) => `${cid(n)}.eq.b${b}.${prm}`,
+    hpf: (n, prm) => `${cid(n)}.eq.hpf.${prm}`,
+    bypass: n => `${cid(n)}.eq.bypass`,
+    gain: n => (isLine(n) ? null : `${cid(n)}.gain`),   // a LINE IN não tem ganho remoto
+    name: n => `${cid(n)}.name`,
+    stereo: n => `${cid(n)}.stereoIndex`,
+    solo: n => `${cid(n)}.solo`,
   };
+  const defaultName = n => (n === LINE_L ? 'LINE L' : n === LINE_R ? 'LINE R' : `CH ${n}`);
 
   // Lê do estado bruto da mesa o EQ de um canal em unidades reais
   function readChannel(state, n) {
@@ -76,16 +81,18 @@ const Core = (() => {
     }));
     return {
       n,
-      name: g(P.name(n), '') || `CH ${n}`,
+      name: g(P.name(n), '') || defaultName(n),
+      line: isLine(n),
       bypass: !!g(P.bypass(n), 0),
       hpf: { freq: normToFreq(g(P.hpf(n, 'freq'), 0)), slope: HPF_SLOPES[clamp(Math.round(g(P.hpf(n, 'slope'), 0)), 0, 2)] },
       bands,
-      gainDb: state[P.gain(n)] === undefined ? null : normToInGain(state[P.gain(n)]),
+      gainDb: !P.gain(n) || state[P.gain(n)] === undefined ? null : normToInGain(state[P.gain(n)]),
       stereoIndex: g(P.stereo(n), -1),
     };
   }
   function linkedChannels(state, n) {
     const si = state[P.stereo(n)];
+    if (isLine(n) && (si === undefined || si === -1)) return [n, n === LINE_L ? LINE_R : LINE_L]; // LINE IN é estéreo
     if (si === 0) return [n, n + 1];
     if (si === 1) return [n, n - 1];
     return [n];
@@ -222,6 +229,14 @@ const Core = (() => {
         Z('Aspereza', 2000, 4500, 'corte', 'guitarra estridente'),
         Z('Chiado / fritura', 5000, 9000, 'corte', 'distorção chiando')],
     },
+    playback: {
+      nome: 'Playback / música (LINE)', hpf: 35, core: [100, 8000],
+      alvo: [[31.5, -6], [63, 0], [125, 0], [250, -1], [500, -3], [1000, -5], [2000, -7], [4000, -9], [8000, -12], [16000, -18]],
+      zonas: [Z('Sobra de grave', 50, 125, 'corte', 'grave do playback embolando a igreja / brigando com o baixo da banda'),
+        Z('Embolado', 200, 400, 'corte', 'música abafada'),
+        Z('Aspereza', 2000, 5000, 'corte', 'som estridente, típico de MP3 ou vídeo do YouTube'),
+        Z('Chiado', 8000, 14000, 'corte', 'chiado / agudo metálico')],
+    },
     sopro: {
       nome: 'Sopro (sax, trompete, flauta)', hpf: 120, core: [250, 6300],
       alvo: [[100, -18], [160, -6], [250, -1], [500, 0], [1000, -1], [2000, -3], [4000, -6], [8000, -11], [16000, -22]],
@@ -230,6 +245,7 @@ const Core = (() => {
     },
   };
   const NAME_HINTS = [
+    [/LINE|PLAY|\bPB\b|NOTE|CELULAR|\bCEL\b|\bPC\b|VIDEO|MIDIA|MÍDIA|MUSICA|MÚSICA/, 'playback'],
     [/PAST|PREG|PALAV|LOCU|LOC\b|PULP|PULPIT|FALA|MC\b/, 'pregacao'],
     [/BACK|CORO|CORAL|BV/, 'coro'],
     [/VIOL[AÃ]O|VLAO|VIOL\b|AC\s*GTR|ACOUS|NYLON/, 'violao'],
@@ -363,6 +379,12 @@ const Core = (() => {
       });
     });
 
+    // 3b) Zumbido de rede elétrica (60 Hz e harmônicos)
+    if (analysis.hum) {
+      out.push({ id: 'hum', tipo: 'aviso', prioridade: 300,
+        titulo: `Zumbido de energia detectado (${analysis.hum.join(', ')} Hz)`,
+        porque: 'É o "hummm" de terra/aterramento, comum com notebook ou celular ligado no carregador. EQ não resolve: tire o carregador do notebook para testar, ligue tudo na mesma tomada da mesa, ou use um isolador de terra (DI ou "ground loop isolator" P2).' });
+    }
     // 4) Ganho de entrada (a partir dos medidores da mesa)
     if (analysis.peakPreDb !== undefined && analysis.peakPreDb !== null && canal && canal.gainDb !== null) {
       const pk = analysis.peakPreDb;
@@ -455,6 +477,16 @@ const Core = (() => {
     };
   }
 
+  // procura picos estreitos em 60/120/180/240 Hz num espectro médio (dB por bin)
+  function detectHum(avgDb, sampleRate, fftSize) {
+    const tol = Math.max(3, 0.8 * sampleRate / fftSize);
+    const pk = narrowPeaks(avgDb, sampleRate, fftSize, 45, 260, 6);
+    const near = h => pk.find(p => Math.abs(p.freq - h) < tol);
+    const hits = [60, 120, 180, 240].filter(near);
+    // exige 60 Hz (a fundamental da rede no Brasil) + um harmônico, ou 60 Hz bem destacado
+    if (hits.includes(60) && (hits.length >= 2 || near(60).prom > 15)) return hits;
+    return null;
+  }
   const NOTES = ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'];
   function noteName(f) {
     const m = Math.round(69 + 12 * Math.log2(f / 440));
@@ -465,7 +497,7 @@ const Core = (() => {
     clamp, freqToNorm, normToFreq, qToNorm, normToQ, eqGainToNorm, normToEqGain, inGainToNorm, normToInGain, vuToDb,
     parseLines, parseLine, decodeVu, cmd, P, readChannel, linkedChannels,
     peakingDb, hpfDb, eqResponse, THIRD, thirdOctave, PROFILES, guessProfile, interpTarget, deviations, suggest, pickBand,
-    narrowPeaks, FeedbackDetector, noteName, fmtHz, roundHz, HPF_SLOPES,
+    narrowPeaks, FeedbackDetector, noteName, fmtHz, roundHz, HPF_SLOPES, NIN, LINE_L, LINE_R, isLine, detectHum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = Core;

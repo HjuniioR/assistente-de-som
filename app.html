@@ -222,7 +222,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 </script>
 <script>
 (() => {
-const VERSAO = '1.3 · 07/11/2026';
+const VERSAO = '1.4 · 07/11/2026';
 const C = Core, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('som.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -234,7 +234,7 @@ const S = {
   profiles: LS.get('profiles', {}),
   input: LS.get('input', ''), linha: LS.get('linha', false), autoSolo: LS.get('autoSolo', true),
 };
-const NCH = 12;
+const NCH = 14; // 12 entradas + LINE L/R
 let sel = LS.get('sel', 1);
 const mix = { ws: null, status: 'off', state: {}, vu: null, timer: null, alive: null, wantOpen: false, peak: {} };
 const undo = [];          // [{label, ch, writes:[[path, old]]}]
@@ -312,25 +312,25 @@ function setd(path, value) {
 }
 function trackPeaks() {
   const now = performance.now();
-  (mix.vu.input || []).forEach((v, i) => {
-    const db = C.vuToDb(v.pre), p = mix.peak[i + 1] || { db: -80, t: 0 };
-    if (db >= p.db || now - p.t > 1500) mix.peak[i + 1] = { db, t: now };
-  });
+  const put = (n, v) => { const db = C.vuToDb(v.pre), p = mix.peak[n] || { db: -80, t: 0 }; if (db >= p.db || now - p.t > 1500) mix.peak[n] = { db, t: now }; };
+  (mix.vu.input || []).forEach((v, i) => put(i + 1, v));
+  (mix.vu.line || []).forEach((v, i) => put(C.LINE_L + i, v));
 }
 // demonstração: simula uma Ui16
 function startDemo() {
   const st = mix.state = {};
   const names = ['PASTOR', 'VOZ 1', 'VOZ 2', 'BACK', 'VIOLAO', 'TECLADO', 'BAIXO', 'BUMBO', 'CAIXA', 'OH', 'GUITARRA', 'SAX'];
   for (let n = 1; n <= NCH; n++) {
-    st[C.P.name(n)] = names[n - 1]; st[C.P.hpf(n, 'freq')] = 0; st[C.P.hpf(n, 'slope')] = 0; st[C.P.bypass(n)] = 0;
-    st[C.P.gain(n)] = C.inGainToNorm(25); st[C.P.stereo(n)] = -1;
+    st[C.P.name(n)] = names[n - 1] || ''; if (C.P.gain(n)) st[C.P.gain(n)] = C.inGainToNorm(25); st[C.P.hpf(n, 'freq')] = 0; st[C.P.hpf(n, 'slope')] = 0; st[C.P.bypass(n)] = 0;
+    st[C.P.stereo(n)] = -1;
     [100, 500, 2000, 8000].forEach((f, k) => { st[C.P.band(n, k + 1, 'freq')] = C.freqToNorm(f); st[C.P.band(n, k + 1, 'gain')] = 0.5; st[C.P.band(n, k + 1, 'q')] = C.qToNorm(1); });
   }
   setMixStatus('demo', 'Modo demonstração');
   log('Modo demonstração ligado');
   mix.demoT = setInterval(() => {
     const t = performance.now() / 1000;
-    mix.vu = { input: Array.from({ length: NCH }, (_, i) => { const v = 0.55 + 0.25 * Math.sin(t * (1.3 + i * 0.37)) * Math.random(); return { pre: v, post: v, fader: v }; }) };
+    const fake = i => { const v = 0.55 + 0.25 * Math.sin(t * (1.3 + i * 0.37)) * Math.random(); return { pre: v, post: v, fader: v }; };
+    mix.vu = { input: Array.from({ length: C.NIN }, (_, i) => fake(i)), line: [fake(12), fake(13)] };
     trackPeaks(); renderVu();
   }, 80);
   renderChannels(); renderEq(); renderHeader();
@@ -339,9 +339,11 @@ function demoReceive(msg) { log('→ ' + msg.slice(4)); }
 
 // ---------------- canais ----------------
 function chInfo(n) { return C.readChannel(mix.state, n); }
-function chName(n) { return connected() ? chInfo(n).name : `Canal ${n}`; }
+function chName(n) { return connected() ? chInfo(n).name : (n === C.LINE_L ? 'LINE L' : n === C.LINE_R ? 'LINE R' : `Canal ${n}`); }
+const chLabel = n => (C.isLine(n) ? chName(n) : `${n} · ${chName(n)}`);
 function profOf(n) {
   if (S.profiles[n]) return S.profiles[n];
+  if (C.isLine(n)) return 'playback';
   return (connected() && C.guessProfile(chInfo(n).name)) || null;
 }
 function renderChannels() {
@@ -350,7 +352,7 @@ function renderChannels() {
     box.innerHTML = '';
     for (let n = 1; n <= NCH; n++) {
       const b = document.createElement('button'); b.className = 'ch'; b.dataset.n = n;
-      b.innerHTML = `<span class="num">${n}</span><span class="nm"></span><span class="vu"><b></b></span>`;
+      b.innerHTML = `<span class="num">${C.isLine(n) ? 'L' : n}</span><span class="nm"></span><span class="vu"><b></b></span>`;
       b.onclick = () => selectCh(n); box.appendChild(b);
     }
   }
@@ -362,14 +364,14 @@ function renderChannels() {
 }
 function renderVu() {
   [...$('#chs').children].forEach(b => {
-    const v = mix.vu && mix.vu.input && mix.vu.input[+b.dataset.n - 1];
+    const n = +b.dataset.n, v = mix.vu && (C.isLine(n) ? (mix.vu.line || [])[n - C.LINE_L] : (mix.vu.input || [])[n - 1]);
     b.querySelector('.vu b').style.height = v ? Math.max(0, Math.min(100, (C.vuToDb(v.pre) + 60) / 60 * 100)) + '%' : '0%';
   });
 }
 function selectCh(n) { sel = n; LS.set('sel', n); renderChannels(); renderHeader(); renderEq(); renderProfiles(); renderSug(); }
 function renderHeader() {
   const p = profOf(sel);
-  $('#chTitle').textContent = `${sel} · ${chName(sel)}`;
+  $('#chTitle').textContent = chLabel(sel);
   let sub = p ? C.PROFILES[p].nome : 'Escolha o perfil em Sugestões';
   if (connected()) { const c = chInfo(sel); if (c.gainDb !== null) sub += ` · ganho ${num(c.gainDb)} dB`; if (c.stereoIndex >= 0) sub += ' · canal estéreo'; }
   $('#chSub').textContent = sub;
@@ -387,9 +389,9 @@ function renderEq() {
 
 // ---------------- aplicar na mesa ----------------
 function describeAction(a, n) {
-  if (a.tipo === 'hpf') return `Passa-altas do canal ${n} em ${C.fmtHz(a.freq)}`;
-  if (a.tipo === 'ganho') return `Ganho de entrada do canal ${n} em ${num(a.valor)} dB`;
-  return `${a.ganho < 0 ? 'Corte' : 'Reforço'} de ${num(Math.abs(a.ganho))} dB em ${C.fmtHz(a.freq)} (Q ${num(a.q)}) na banda ${C.pickBand(chInfo(n), a.freq)} do canal ${n}`;
+  if (a.tipo === 'hpf') return `Passa-altas de ${chLabel(n)} em ${C.fmtHz(a.freq)}`;
+  if (a.tipo === 'ganho') return `Ganho de entrada de ${chLabel(n)} em ${num(a.valor)} dB`;
+  return `${a.ganho < 0 ? 'Corte' : 'Reforço'} de ${num(Math.abs(a.ganho))} dB em ${C.fmtHz(a.freq)} (Q ${num(a.q)}) na banda ${C.pickBand(chInfo(n), a.freq)} de ${chLabel(n)}`;
 }
 function writesFor(a, n) {
   const w = [];
@@ -397,7 +399,7 @@ function writesFor(a, n) {
     if (a.tipo === 'hpf') {
       w.push([C.P.hpf(ch, 'freq'), C.freqToNorm(C.clamp(a.freq, 20, 1000))]);
     } else if (a.tipo === 'ganho') {
-      w.push([C.P.gain(ch), C.inGainToNorm(C.clamp(a.valor, -40, 50))]);
+      if (C.P.gain(ch)) w.push([C.P.gain(ch), C.inGainToNorm(C.clamp(a.valor, -40, 50))]);
     } else if (a.tipo === 'banda') {
       const b = C.pickBand(chInfo(n), a.freq);
       w.push([C.P.band(ch, b, 'freq'), C.freqToNorm(a.freq)]);
@@ -414,6 +416,7 @@ async function applyAction(a, n, onDone) {
   const label = describeAction(a, n);
   if (S.confirm && !(await confirmDlg('Aplicar na mesa?', label))) return;
   const writes = writesFor(a, n);
+  if (!writes.length) { toast('Esse ajuste não existe nesse canal; faça direto na fonte (celular/notebook)'); return; }
   const old = writes.map(([p]) => [p, mix.state[p]]);
   let ok = true;
   writes.forEach(([p, v]) => { ok = setd(p, v) && ok; });
@@ -588,7 +591,7 @@ function draw() {
 
 // ---------------- análise (captura de 6 s) ----------------
 const cap = { on: false };
-function soloPath(ch) { return `i.${ch - 1}.solo`; }
+function soloPath(ch) { return C.P.solo(ch); }
 function soloOnly(n) {
   const prev = {}, alvo = C.linkedChannels(mix.state, n);
   for (let ch = 1; ch <= NCH; ch++) {
@@ -657,7 +660,12 @@ function finishAnalysis() {
   const quiet = 10 * Math.log10(maxE + 1e-20) < -65 || cap.tdPeak < 0.01;
   const clip = cap.tdPeak > 0.98;
   const bands = C.thirdOctave(pow, sr, N);
-  const res = { bands, rings: rings.slice(0, 2), peakPreDb: connected() && mix.vu ? cap.peakPre : null, perfil: cap.perfil, frames: use.length, quiet, clip, linha: S.linha, t: Date.now() };
+  // zumbido é constante: aparece no "piso" (mínimo por frequência ao longo de todos os quadros)
+  // usa o percentil 20 de cada frequência (só até 300 Hz, que é onde o zumbido mora)
+  const floorDb = new Float32Array(n).fill(-140), kMax = Math.min(n - 1, Math.ceil(320 / (sr / N)));
+  for (let k = 0; k <= kMax; k++) { const v = frames.map(f => f.fr[k]).sort((x, y) => x - y); floorDb[k] = v[Math.floor(v.length * 0.2)]; }
+  const hum = C.detectHum(floorDb, sr, N);
+  const res = { hum, bands, rings: rings.slice(0, 2), peakPreDb: connected() && mix.vu ? cap.peakPre : null, perfil: cap.perfil, frames: use.length, quiet, clip, linha: S.linha, t: Date.now() };
   lastAnalysis[cap.ch] = res;
   const canal = connected() ? chInfo(cap.ch) : null;
   lastSug[cap.ch] = C.suggest(res, cap.perfil, canal, { micLowCut: S.linha ? 50 : 80 }).sugestoes.map(s => ({ ...s, feito: false }));
@@ -679,9 +687,9 @@ function renderSug() {
   if (an.perfil !== profOf(sel)) html += `<div class="note">Esta análise foi feita com o perfil "${esc(C.PROFILES[an.perfil].nome)}". Analise de novo para usar o perfil atual.</div>`;
   if (!list.length) html += `<div class="card done"><h4>Está equilibrado 👍</h4><p>Nada passou do limite para ${esc(C.PROFILES[an.perfil].nome.toLowerCase())}. Se ainda incomodar, descreva o problema em "Perguntar à IA".</p></div>`;
   list.forEach((s, i) => {
-    const tag = s.tipo === 'hpf' ? 'Filtro' : s.tipo === 'ganho' ? 'Ganho' : s.ganho < 0 ? 'Corte' : 'Reforço';
+    const tag = s.tipo === 'hpf' ? 'Filtro' : s.tipo === 'ganho' ? 'Ganho' : s.tipo === 'aviso' ? 'Atenção' : s.ganho < 0 ? 'Corte' : 'Reforço';
     html += `<div class="card ${s.feito ? 'done' : ''}"><span class="tag">${tag}${i === 0 ? ' · faça primeiro' : ''}</span><h4>${esc(s.titulo)}</h4><p>${esc(s.porque)}</p>
-      <div class="row">${S.lock ? '' : `<button class="btn small primary" data-ap="${i}" ${connected() ? '' : 'disabled'}>${s.feito ? 'Aplicado ✓' : 'Aplicar na mesa'}</button>`}
+      <div class="row">${S.lock || s.tipo === 'aviso' ? '' : `<button class="btn small primary" data-ap="${i}" ${connected() ? '' : 'disabled'}>${s.feito ? 'Aplicado ✓' : 'Aplicar na mesa'}</button>`}
       ${s.feito ? `<button class="btn small" data-un="${i}">Desfazer</button>` : ''}</div></div>`;
   });
   if (list.length) html += `<div class="note">Aplique <b>uma sugestão por vez</b> e escute. Se piorar, desfaça. Depois de mexer, analise de novo.${connected() ? '' : ' <b>Conecte a mesa</b> para aplicar com um toque.'}</div>`;
@@ -721,13 +729,13 @@ function feedbackFrame(t) {
 }
 function renderFb() {
   $('#fbList').innerHTML = fb.list.slice(0, 8).map((x, i) => `<div class="card ${x.feito ? 'done' : ''}"><span class="tag">Microfonia ${x.vezes > 1 ? '· apareceu ' + x.vezes + ' vezes' : ''}</span>
-    <h4>${C.fmtHz(x.freq)} (nota ${C.noteName(x.freq)})</h4><p>Corte estreito sugerido: ${num(x.ganho)} dB, Q ${x.q}, no canal ${sel} (${esc(chName(sel))}).</p>
-    <div class="row">${S.lock ? '' : `<button class="btn small primary" data-fa="${i}" ${connected() ? '' : 'disabled'}>${x.feito ? 'Aplicado ✓' : 'Cortar no canal ' + sel}</button>`}</div></div>`).join('');
+    <h4>${C.fmtHz(x.freq)} (nota ${C.noteName(x.freq)})</h4><p>Corte estreito sugerido: ${num(x.ganho)} dB, Q ${x.q}, em ${esc(chLabel(sel))}.</p>
+    <div class="row">${S.lock ? '' : `<button class="btn small primary" data-fa="${i}" ${connected() ? '' : 'disabled'}>${x.feito ? 'Aplicado ✓' : 'Cortar em ' + esc(chLabel(sel))}</button>`}</div></div>`).join('');
   $$('#fbList [data-fa]').forEach(b => b.onclick = () => { const x = fb.list[+b.dataset.fa]; applyAction({ tipo: 'banda', freq: x.freq, ganho: x.ganho, q: x.q }, sel, () => { x.feito = true; renderFb(); }); });
 }
 
 // ---------------- IA ----------------
-const SYS = `Você é um técnico de som experiente que ajuda o operador voluntário de uma igreja evangélica brasileira. A mesa é uma Soundcraft Ui16 (12 entradas, EQ paramétrico de 4 bandas por canal com frequência 20 Hz–20 kHz, ganho ±20 dB e Q 0,05–15; filtro passa-altas 20 Hz–1 kHz; compressor, gate e de-esser por canal; EQ gráfico de 31 bandas e AFS2 nas saídas).
+const SYS = `Você é um técnico de som experiente que ajuda o operador voluntário de uma igreja evangélica brasileira. A mesa é uma Soundcraft Ui16 (12 entradas mais a LINE IN estéreo L/R — os "canais" 13 e 14, sem ganho remoto —, EQ paramétrico de 4 bandas por canal com frequência 20 Hz–20 kHz, ganho ±20 dB e Q 0,05–15; filtro passa-altas 20 Hz–1 kHz; compressor, gate e de-esser por canal; EQ gráfico de 31 bandas e AFS2 nas saídas).
 Responda em português do Brasil, de forma curta, prática e calma, como quem explica para um voluntário durante a passagem de som ou o culto. Use os dados de medição e o estado da mesa enviados no contexto. Prefira cortes a reforços, mudanças pequenas (no máximo -9 dB / +4 dB), uma coisa de cada vez, e lembre de checar ganho e posição do microfone antes de equalizar. Se faltar informação, faça no máximo uma pergunta.
 Quando recomendar ajustes concretos no canal selecionado, termine a resposta com um bloco de código json no formato:
 \`\`\`json
@@ -761,7 +769,7 @@ function renderChat() {
   $('#chat').innerHTML = chatHist.map((m, i) => {
     if (m.role === 'user') return `<div class="msg me">${esc(m.show || m.content)}</div>`;
     let t = esc(m.content).replace(/```json[\s\S]*?```/g, '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').trim();
-    const acts = (m.acoes || []).map((a, j) => `<button class="btn small primary" data-ia="${i}:${j}" ${connected() && !S.lock ? '' : 'disabled'}>${a.feito ? '✓ ' : ''}${esc(describeAction(a, sel).replace(/ do canal \d+| na banda \d+/g, ''))}</button>`).join('');
+    const acts = (m.acoes || []).map((a, j) => `<button class="btn small primary" data-ia="${i}:${j}" ${connected() && !S.lock ? '' : 'disabled'}>${a.feito ? '✓ ' : ''}${esc(describeAction(a, sel).replace(/ de \d+ · [^ ]+| de LINE [LR]| na banda \d+/g, ''))}</button>`).join('');
     return `<div class="msg ai ${m.err ? 'err' : ''}">${t}${acts ? `<div class="row" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${acts}</div>` : ''}</div>`;
   }).join('');
   $$('#chat [data-ia]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.ia.split(':').map(Number); const a = chatHist[i].acoes[j]; applyAction(a, sel, () => { a.feito = true; renderChat(); }); });
