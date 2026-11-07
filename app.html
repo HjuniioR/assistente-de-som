@@ -202,6 +202,9 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
         </select>
         <div class="lbl">Desfazer</div>
         <button class="btn" id="btnUndoAll" style="width:100%">Desfazer tudo que o app mudou na mesa</button>
+        <div class="lbl">Diagnóstico do áudio</div>
+        <div class="log" id="diag" style="max-height:none">…</div>
+        <button class="btn small" id="btnDiag" style="margin-top:8px">Atualizar diagnóstico</button>
         <div class="lbl">Versão</div>
         <div class="note" style="margin-top:0" id="verInfo"></div>
         <button class="btn" id="btnUpdate" style="width:100%;margin-top:8px">Buscar atualização</button>
@@ -219,7 +222,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 </script>
 <script>
 (() => {
-const VERSAO = '1.2 · 07/11/2026';
+const VERSAO = '1.3 · 07/11/2026';
 const C = Core, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('som.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -431,6 +434,8 @@ const A = { ctx: null, an: null, live: null, raw: null, on: false, frozen: false
 async function startMic() {
   if (A.on) { stopMic(); return; }
   if (!window.isSecureContext || !navigator.mediaDevices) {
+    A.lastErr = 'página sem contexto seguro (' + location.origin + ')'; diag();
+    toast('Microfone bloqueado: abra pelo endereço http://127.0.0.1:8080');
     showInfo('Microfone bloqueado', 'O navegador só libera o microfone quando o app é aberto por http://localhost (servidor local do tablet) ou https. Veja as instruções de instalação.');
     return;
   }
@@ -467,7 +472,7 @@ async function startMic() {
     log(`Microfone ligado (${A.ctx.sampleRate} Hz)`);
     keepAwake();
   } catch (e) {
-    clearTimeout(espera);
+    clearTimeout(espera); A.lastErr = (e && (e.name + ': ' + e.message)) || String(e); diag();
     $('#micDot').className = 'dot bad'; $('#micTxt').textContent = 'Áudio bloqueado';
     showInfo('Não consegui abrir o microfone', 'Permita o uso do microfone para este site nas configurações do Chrome. Detalhe: ' + e.message);
   }
@@ -479,6 +484,18 @@ function stopMic() {
 }
 // se o Android "adormecer" o áudio, qualquer toque acorda
 document.addEventListener('pointerdown', () => { if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume(); }, true);
+async function diag() {
+  const L = [];
+  L.push('Endereço: ' + location.href);
+  L.push('Contexto seguro (precisa ser sim): ' + (window.isSecureContext ? 'sim' : 'NÃO'));
+  L.push('Acesso a mídia no navegador: ' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'sim' : 'NÃO'));
+  try { const st = await navigator.permissions.query({ name: 'microphone' }); L.push('Permissão do microfone: ' + ({ granted: 'liberada', denied: 'BLOQUEADA', prompt: 'ainda não pedida' }[st.state] || st.state)); } catch { L.push('Permissão do microfone: não consegui consultar'); }
+  try { const d = (await navigator.mediaDevices.enumerateDevices()).filter(x => x.kind === 'audioinput'); L.push('Entradas de áudio encontradas: ' + d.length); } catch { L.push('Entradas de áudio: erro ao listar'); }
+  L.push('Áudio do app: ' + (A.on ? 'ligado (' + (A.ctx ? A.ctx.state : '?') + ')' : 'desligado'));
+  if (A.lastErr) L.push('Último erro: ' + A.lastErr);
+  const m = navigator.userAgent.match(/Chrome\/(\d+)/); L.push('Chrome versão: ' + (m ? m[1] : navigator.userAgent.slice(0, 60)));
+  $('#diag').textContent = L.join('\n');
+}
 let knownInputs = null;
 async function listInputs() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
@@ -798,7 +815,7 @@ function confirmDlg(t, body) {
   });
 }
 function showInfo(t, body) { const d = $('#dlg'); $('#dlgT').textContent = t; $('#dlgB').innerHTML = `<p style="color:var(--muted);margin:0">${esc(body)}</p>`; $('#dlgOk').style.display = 'none'; $('#dlgNo').textContent = 'Fechar'; $('#dlgNo').onclick = () => d.close(); d.showModal(); }
-function switchTab(id) { $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === id)); if (id === 'tIa') renderChat(); }
+function switchTab(id) { if (id === 'tCfg') diag(); $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === id)); if (id === 'tIa') renderChat(); }
 
 // ---------------- ligações ----------------
 $$('.tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
@@ -829,6 +846,7 @@ listInputs();
 (() => {
   let off = null; try { off = sessionStorage.getItem('som.offline'); sessionStorage.removeItem('som.offline'); } catch {}
   $('#verInfo').innerHTML = `Versão <b>${VERSAO}</b>` + (off ? `<br>Sem internet: usando a cópia salva em ${esc(off)}.` : '');
+  diag(); $('#btnDiag').onclick = diag;
   $('#btnUpdate').onclick = async () => { if (undo.length && !(await confirmDlg('Recarregar o app?', 'As mudanças na mesa continuam lá, mas o histórico de "desfazer" será perdido.'))) return; undo.length = 0; location.reload(); };
 })();
 
