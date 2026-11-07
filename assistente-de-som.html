@@ -926,11 +926,6 @@ async function startMic() {
     $('#micDot').className = 'dot ok'; $('#micTxt').textContent = (S.linha ? 'Ouvindo a mesa' : 'Ouvindo a igreja') + (label ? ' · ' + label.slice(0, 28) : '');
     $('#btnMic').textContent = 'Desligar áudio';
     listInputs();
-(() => {
-  let off = null; try { off = sessionStorage.getItem('som.offline'); } catch {}
-  $('#verInfo').innerHTML = `Versão <b>${VERSAO}</b>` + (off ? `<br>Sem internet: usando a cópia salva em ${esc(off)}.` : '');
-  $('#btnUpdate').onclick = async () => { if (undo.length && !(await confirmDlg('Recarregar o app?', 'As mudanças na mesa continuam lá, mas o histórico de "desfazer" será perdido.'))) return; undo.length = 0; location.reload(); };
-})();
     $('#specOverlay').style.display = 'none';
     log(`Microfone ligado (${A.ctx.sampleRate} Hz)`);
     keepAwake();
@@ -1287,6 +1282,12 @@ $('#cfgInput').onchange = () => {
   renderSug(); restartAudio();
 };
 listInputs();
+(() => {
+  let off = null; try { off = sessionStorage.getItem('som.offline'); sessionStorage.removeItem('som.offline'); } catch {}
+  $('#verInfo').innerHTML = `Versão <b>${VERSAO}</b>` + (off ? `<br>Sem internet: usando a cópia salva em ${esc(off)}.` : '');
+  $('#btnUpdate').onclick = async () => { if (undo.length && !(await confirmDlg('Recarregar o app?', 'As mudanças na mesa continuam lá, mas o histórico de "desfazer" será perdido.'))) return; undo.length = 0; location.reload(); };
+})();
+
 window.addEventListener('beforeunload', e => { if (undo.length) { e.preventDefault(); e.returnValue = ''; } });
 
 renderChannels(); renderHeader(); renderEq(); renderProfiles(); renderSug(); setMixStatus('off', 'Mesa desconectada');
