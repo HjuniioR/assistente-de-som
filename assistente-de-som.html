@@ -199,6 +199,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
         <div class="fl" id="igrForm"></div>
         <div class="lbl" style="margin-top:18px">Medir a acústica da igreja</div>
         <div class="note" style="margin-top:0">O app toca um <b>ruído rosa</b> (um chiado com todas as frequências por igual) pelo som da igreja e escuta pelo microfone do tablet. A diferença entre o que saiu e o que chegou é a "assinatura" da igreja (caixas + sala + microfone do tablet). Depois, as análises descontam essa assinatura e a IA recebe essa informação.</div>
+        <div class="switch"><span>O ruído vai tocar de outro aparelho (YouTube no celular ou notebook)</span><input type="checkbox" id="cfgRuidoExt"></div>
         <button class="btn primary big" id="btnSala" style="margin-top:10px">Medir a igreja</button>
         <div class="row" style="display:flex;gap:8px;margin-top:8px"><button class="btn small" id="btnSalaMais">Medir mais um ponto (média)</button><button class="btn small" id="btnSalaApagar">Apagar medição</button></div>
         <div class="switch"><span>Descontar a acústica da igreja nas análises</span><input type="checkbox" id="cfgComp" checked></div>
@@ -772,7 +773,7 @@ if (typeof module !== 'undefined') module.exports = Core;
 </script>
 <script>
 (() => {
-const VERSAO = '1.7 · 07/11/2026';
+const VERSAO = '1.8 · 07/11/2026';
 const C = Core, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('som.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -783,7 +784,7 @@ const S = {
   wake: LS.get('wake', true), key: LS.get('key', ''), model: LS.get('model', 'claude-sonnet-5-5'),
   profiles: LS.get('profiles', {}),
   input: LS.get('input', ''), linha: LS.get('linha', false), autoSolo: LS.get('autoSolo', true), lineOk: LS.get('lineOk', null),
-  igreja: LS.get('igreja', {}), sala: LS.get('sala', null), compensar: LS.get('compensar', true),
+  igreja: LS.get('igreja', {}), ruidoExt: LS.get('ruidoExt', false), sala: LS.get('sala', null), compensar: LS.get('compensar', true),
 };
 const NCH = 14; // 12 entradas + LINE L/R
 let sel = LS.get('sel', 1);
@@ -1478,10 +1479,14 @@ function pinkNoise(ctx) {
 async function medirSala(somar) {
   if (S.linha) { toast('Desligue "O som vem da mesa" em Ajustes: a medição usa o microfone do aparelho'); return; }
   if (!A.on) { await startMic(); if (!A.on) return; }
-  if (!(await confirmDlg('Preparar a medição', 'Ligue a saída de fone deste aparelho num canal da mesa (o cabo P2 → P10 que você já tem serve), com o fader em 0 dB e o EQ reto. Baixe o volume do Master. Fique com o aparelho no meio da igreja, na altura da cabeça, longe de paredes. Os outros canais fechados e a igreja em silêncio.', 'Continuar'))) return;
+  const ext = S.ruidoExt;
+  const prep = ext
+    ? 'Ligue o celular ou notebook na LINE (ou num canal) da mesa, com o EQ desse canal reto (sem cortes) e o fader em 0 dB. No aparelho, desligue equalizador e "efeitos de som" (Dolby, Atmos etc.) e deixe o volume dele em uns 80%. Deixe o ruído rosa PAUSADO por enquanto. Baixe o Master. Fique com o tablet no meio da igreja, na altura da cabeça. Outros canais fechados e a igreja em silêncio.'
+    : 'Ligue a saída de fone deste aparelho num canal da mesa (o cabo P2 → P10 que você já tem serve), com o fader em 0 dB e o EQ reto. Baixe o volume do Master. Fique com o aparelho no meio da igreja, na altura da cabeça, longe de paredes. Os outros canais fechados e a igreja em silêncio.';
+  if (!(await confirmDlg('Preparar a medição', prep, 'Continuar'))) return;
   toast('Medindo o silêncio…'); const fundo = await captureBands(2500);
-  const ruido = pinkNoise(A.ctx);
-  const ok1 = await confirmDlg('Ruído tocando', 'Agora deve sair um chiado nas caixas. Suba o Master devagar até ficar mais ou menos tão forte quanto o louvor (sem exagero). Depois toque em Medir e não faça barulho por 8 segundos.', 'Medir');
+  const ruido = ext ? { stop() {} } : pinkNoise(A.ctx);
+  const ok1 = await confirmDlg('Ruído tocando', (ext ? 'Agora dê play no ruído rosa. ' : 'Agora deve sair um chiado nas caixas. ') + 'Suba o Master devagar até ficar mais ou menos tão forte quanto o louvor (sem exagero). Depois toque em Medir e não faça barulho por 8 segundos.', 'Medir');
   if (!ok1) { ruido.stop(); return; }
   toast('Medindo… silêncio por 8 segundos'); const med = await captureBands(8000);
   ruido.stop();
@@ -1720,6 +1725,7 @@ bindCfg('#cfgWake', 'wake', 'checked', keepAwake);
 bindCfg('#cfgLinha', 'linha', 'checked', () => { renderSug(); renderLineState(); if (A.on) $('#micTxt').textContent = S.linha ? 'Ouvindo a mesa' : 'Ouvindo a igreja'; });
 bindCfg('#cfgAutoSolo', 'autoSolo', 'checked', renderSug);
 bindCfg('#cfgComp', 'compensar', 'checked', renderSala);
+bindCfg('#cfgRuidoExt', 'ruidoExt', 'checked');
 $('#btnTestIn').onclick = testInput;
 $('#cfgInput').onchange = () => {
   S.input = $('#cfgInput').value; LS.set('input', S.input);
