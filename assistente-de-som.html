@@ -1,0 +1,1300 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<title>Assistente de Som · Ui16</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --line:#2a2f3a; --text:#e8eaf0; --muted:#9aa3b5; --dim:#6b7385;
+  --accent:#f5a524; --accent2:#ffcf70; --ok:#3ecf8e; --warn:#ff9f43; --bad:#ff5c5c; --blue:#5aa9ff; --violet:#b48cff;
+  --r:12px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button{font:inherit;color:inherit;cursor:pointer}
+input,select,textarea{font:inherit;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;width:100%}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.app{display:grid;grid-template-rows:auto 1fr;height:100dvh}
+header{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);flex-wrap:wrap}
+.brand{font-weight:700;letter-spacing:.2px;margin-right:6px;display:flex;align-items:center;gap:8px}
+.brand i{display:inline-block;width:12px;height:12px;border-radius:3px;background:var(--accent);box-shadow:0 0 12px var(--accent)}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--panel2);border:1px solid var(--line);font-size:13px;color:var(--muted);white-space:nowrap}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+.dot.ok{background:var(--ok);box-shadow:0 0 8px var(--ok)} .dot.warn{background:var(--warn)} .dot.bad{background:var(--bad)}
+.btn{border:1px solid var(--line);background:var(--panel2);padding:10px 14px;border-radius:10px;min-height:44px;font-weight:600}
+.btn:active{transform:translateY(1px)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#1a1200}
+.btn.ghost{background:transparent}
+.btn.small{min-height:36px;padding:6px 10px;font-size:13px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.spacer{flex:1}
+main{display:grid;grid-template-columns:200px 1fr 400px;min-height:0}
+#chs{border-right:1px solid var(--line);overflow:auto;padding:8px;display:flex;flex-direction:column;gap:6px}
+.ch{display:grid;grid-template-columns:28px 1fr 8px;align-items:center;gap:8px;padding:8px 8px;border-radius:10px;border:1px solid transparent;background:transparent;text-align:left;min-height:48px}
+.ch:hover{background:var(--panel2)}
+.ch.sel{background:var(--panel2);border-color:var(--accent)}
+.ch .num{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;text-align:center}
+.ch .nm{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch .pf{display:block;font-size:11px;color:var(--muted);font-weight:400}
+.ch .vu{width:8px;height:34px;border-radius:3px;background:var(--line);position:relative;overflow:hidden}
+.ch .vu b{position:absolute;left:0;right:0;bottom:0;background:linear-gradient(to top,var(--ok) 0 60%,var(--warn) 60% 85%,var(--bad) 85%);transition:height .08s}
+#center{display:flex;flex-direction:column;min-width:0;min-height:0}
+.toolbar{display:flex;gap:8px;align-items:center;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.toolbar h2{margin:0;font-size:17px}
+.toolbar .sub{color:var(--muted);font-size:13px}
+#specWrap{position:relative;flex:1;min-height:220px}
+#spec{position:absolute;inset:0;width:100%;height:100%;display:block}
+.legend{position:absolute;left:12px;top:8px;display:flex;gap:12px;font-size:12px;color:var(--muted);pointer-events:none;flex-wrap:wrap}
+.legend span::before{content:"";display:inline-block;width:14px;height:3px;margin-right:5px;vertical-align:middle;background:var(--c)}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.overlay .msg{pointer-events:auto;background:rgba(15,17,21,.86);border:1px solid var(--line);padding:18px 20px;border-radius:14px;text-align:center;max-width:420px}
+.eqstrip{display:grid;grid-template-columns:repeat(5,1fr) auto;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:var(--panel)}
+.eqcell{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 8px;font-size:12px;color:var(--muted);min-width:0}
+.eqcell b{display:block;color:var(--text);font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.eqcell.cut b{color:var(--blue)} .eqcell.boost b{color:var(--accent2)}
+aside{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--panel)}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:12px 4px;font-weight:600;color:var(--muted);min-height:48px;font-size:14px}
+.tabs button.on{color:var(--text);border-bottom-color:var(--accent)}
+.tab{display:none;overflow:auto;padding:12px;flex:1;min-height:0}
+.tab.on{display:block}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:14px 0 6px}
+.lbl:first-child{margin-top:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--panel2);border-radius:999px;padding:8px 12px;font-size:13px;min-height:38px}
+.chip.on{background:var(--accent);color:#1a1200;border-color:var(--accent);font-weight:600}
+.big{width:100%;min-height:56px;font-size:16px}
+.progress{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:8px}
+.progress b{display:block;height:100%;width:0;background:var(--accent);transition:width .1s linear}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--r);padding:12px;margin-top:10px}
+.card h4{margin:0 0 4px;font-size:15px;line-height:1.3}
+.card p{margin:0 0 10px;color:var(--muted);font-size:13.5px}
+.card .row{display:flex;gap:8px;flex-wrap:wrap}
+.card.done{border-color:var(--ok)}
+.card .tag{display:inline-block;font-size:11px;padding:2px 7px;border-radius:6px;background:var(--line);color:var(--muted);margin-bottom:6px}
+.note{font-size:13px;color:var(--muted);background:var(--panel2);border:1px dashed var(--line);border-radius:10px;padding:10px 12px;margin-top:10px}
+.note b{color:var(--text)}
+.fbBig{font-size:42px;font-weight:800;text-align:center;margin:8px 0 0;font-variant-numeric:tabular-nums}
+.fbSub{text-align:center;color:var(--muted);margin-bottom:8px}
+.fbmeter{height:10px;border-radius:5px;background:var(--line);overflow:hidden}
+.fbmeter b{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),var(--warn),var(--bad))}
+.chat{display:flex;flex-direction:column;gap:10px}
+.msg{padding:10px 12px;border-radius:12px;font-size:14px;white-space:pre-wrap;word-wrap:break-word}
+.msg.me{background:#2b2410;border:1px solid #4a3a10;align-self:flex-end;max-width:90%}
+.msg.ai{background:var(--panel2);border:1px solid var(--line)}
+.msg.err{border-color:var(--bad);color:#ffb3b3}
+.chatbar{display:flex;gap:8px;margin-top:10px}
+.chatbar textarea{min-height:48px;max-height:120px;resize:vertical}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.switch input{width:auto;transform:scale(1.4)}
+.log{font:12px/1.4 ui-monospace,Menlo,monospace;color:var(--muted);background:#0b0d10;border:1px solid var(--line);border-radius:10px;padding:8px;max-height:160px;overflow:auto;white-space:pre-wrap}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:18px;max-width:440px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+dialog h3{margin:0 0 8px}
+dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.4);z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw}
+.toast.on{opacity:1}
+@media (max-width:1100px){ main{grid-template-columns:150px 1fr 340px} .eqstrip{grid-template-columns:repeat(5,1fr)} .eqstrip .eqbtn{grid-column:1/-1} }
+@media (max-width:860px){
+  main{grid-template-columns:1fr;grid-template-rows:auto minmax(280px,42vh) 1fr}
+  #chs{align-items:center} .ch{min-height:52px}
+  #chs{flex-direction:row;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line)}
+  .ch{min-width:130px}
+  aside{border-left:0;border-top:1px solid var(--line)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand"><i></i>Assistente de Som</div>
+    <span class="pill" id="mixPill"><span class="dot" id="mixDot"></span><span id="mixTxt">Mesa desconectada</span></span>
+    <span class="pill" id="micPill"><span class="dot" id="micDot"></span><span id="micTxt">Áudio desligado</span></span>
+    <span class="spacer"></span>
+    <button class="btn small" id="btnMic">Ligar áudio</button>
+    <button class="btn small" id="btnConnect">Conectar mesa</button>
+  </header>
+  <main>
+    <nav id="chs" aria-label="Canais"></nav>
+    <section id="center">
+      <div class="toolbar">
+        <div><h2 id="chTitle">Selecione um canal</h2><div class="sub" id="chSub">Toque num canal à esquerda</div></div>
+        <span class="spacer"></span>
+        <button class="btn small ghost" id="btnFreeze">Congelar</button>
+      </div>
+      <div id="specWrap">
+        <canvas id="spec"></canvas>
+        <div class="legend">
+          <span style="--c:#9aa3b5">Ao vivo</span>
+          <span style="--c:#f5a524">Última análise</span>
+          <span style="--c:#3ecf8e">Alvo do perfil</span>
+          <span style="--c:#5aa9ff">EQ do canal na mesa</span>
+        </div>
+        <div class="overlay" id="specOverlay"><div class="msg">
+          <p style="margin:0 0 10px">O app escuta a igreja pelo microfone do tablet, ou a mesa pelo cabo na entrada de fone.</p>
+          <button class="btn primary" id="btnMic2">Ligar áudio</button>
+        </div></div>
+      </div>
+      <div class="eqstrip" id="eqstrip"></div>
+    </section>
+    <aside>
+      <div class="tabs" role="tablist">
+        <button class="on" data-tab="tSug">Sugestões</button>
+        <button data-tab="tFb">Microfonia</button>
+        <button data-tab="tIa">Perguntar à IA</button>
+        <button data-tab="tCfg">Ajustes</button>
+      </div>
+
+      <div class="tab on" id="tSug">
+        <div class="lbl">O que está nesse canal?</div>
+        <div class="chips" id="profChips"></div>
+        <div class="lbl">Análise</div>
+        <button class="btn primary big" id="btnAnalyze">Analisar 6 segundos</button>
+        <div class="progress"><b id="anProg"></b></div>
+        <div class="note" id="anHelp"><b>Como fazer:</b> na passagem de som, peça para <b>só esse instrumento ou voz</b> tocar (os outros em silêncio). Fique com o tablet no meio da igreja, na altura da cabeça, e toque em Analisar.</div>
+        <div id="sugList"></div>
+      </div>
+
+      <div class="tab" id="tFb">
+        <div class="note" style="margin-top:0"><b>Caçador de microfonia.</b> Use na passagem de som: com o canal aberto, suba o fader devagar até começar a apitar. O app mostra a frequência na hora e sugere o corte. Abaixe o fader assim que apitar.</div>
+        <button class="btn primary big" id="btnFb" style="margin-top:10px">Começar a escutar</button>
+        <div class="fbBig" id="fbFreq">—</div>
+        <div class="fbSub" id="fbSub">Aguardando…</div>
+        <div class="fbmeter"><b id="fbMeter"></b></div>
+        <div id="fbList"></div>
+        <div class="note">A Ui16 também tem o <b>AFS2</b> (supressor automático de microfonia) no EQ gráfico das saídas Master e Aux. Os cortes daqui vão no EQ do canal selecionado.</div>
+      </div>
+
+      <div class="tab" id="tIa">
+        <div id="iaSetup" class="note" style="margin-top:0">Para usar a IA, coloque sua chave da API da Anthropic em <b>Ajustes</b>. O tablet precisa ter internet.</div>
+        <div class="chips" id="iaQuick" style="margin:10px 0"></div>
+        <div class="chat" id="chat"></div>
+        <div class="chatbar">
+          <textarea id="iaInput" placeholder="Ex.: a voz do pastor está abafada no fundo da igreja, o que faço?"></textarea>
+          <button class="btn primary" id="btnAsk">Enviar</button>
+        </div>
+      </div>
+
+      <div class="tab" id="tCfg">
+        <div class="lbl">Mesa</div>
+        <label>Endereço (IP) da Ui16 na rede</label>
+        <input id="cfgIp" inputmode="decimal" placeholder="192.168.0.250">
+        <div class="switch"><span>Modo demonstração (sem mesa)</span><input type="checkbox" id="cfgDemo"></div>
+        <div class="switch"><span>Pedir confirmação antes de aplicar</span><input type="checkbox" id="cfgConfirm" checked></div>
+        <div class="switch"><span>Só sugerir (nunca mexer na mesa)</span><input type="checkbox" id="cfgLock"></div>
+        <div class="switch"><span>Manter a tela ligada</span><input type="checkbox" id="cfgWake" checked></div>
+        <div class="lbl">Fonte de áudio</div>
+        <select id="cfgInput"><option value="">Microfone do tablet (padrão)</option></select>
+        <div class="switch"><span>O som vem da mesa (cabo da saída PHONES no tablet)</span><input type="checkbox" id="cfgLinha"></div>
+        <div class="switch"><span>Dar solo automático no canal ao analisar</span><input type="checkbox" id="cfgAutoSolo" checked></div>
+        <div class="note" style="margin-top:6px">Com o cabo na entrada de fone do tablet, o Android troca sozinho para ele: deixe a fonte em "padrão" e só ligue a opção acima. Comece com o volume <b>PHONES</b> da Ui16 quase zerado e vá subindo devagar. Na Ui16, deixe o solo em <b>AFL</b> (pós-EQ) para o app enxergar os ajustes.</div>
+        <div class="lbl">IA (Anthropic)</div>
+        <label>Chave da API</label>
+        <input id="cfgKey" type="password" placeholder="sk-ant-..." autocomplete="off">
+        <label style="display:block;margin-top:8px">Modelo</label>
+        <select id="cfgModel">
+          <option value="claude-sonnet-5-5">Claude Sonnet 5.5 (recomendado)</option>
+          <option value="claude-haiku-5-5">Claude Haiku 5.5 (mais rápido e barato)</option>
+          <option value="claude-opus-5-5">Claude Opus 5.5 (mais caprichado)</option>
+        </select>
+        <div class="lbl">Desfazer</div>
+        <button class="btn" id="btnUndoAll" style="width:100%">Desfazer tudo que o app mudou na mesa</button>
+        <div class="lbl">Versão</div>
+        <div class="note" style="margin-top:0" id="verInfo"></div>
+        <button class="btn" id="btnUpdate" style="width:100%;margin-top:8px">Buscar atualização</button>
+        <div class="lbl">Registro</div>
+        <div class="log" id="log"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+<dialog id="dlg"><h3 id="dlgT"></h3><div id="dlgB"></div><div class="row"><button class="btn" id="dlgNo">Cancelar</button><button class="btn primary" id="dlgOk">Aplicar</button></div></dialog>
+<div class="toast" id="toast"></div>
+
+<script>
+// ===== Núcleo: protocolo da Ui16, conversões, análise e motor de sugestões =====
+// (sem dependência de DOM: testável no Node)
+
+const Core = (() => {
+  // ---------- Conversões (mesmas fórmulas da biblioteca soundcraft-ui-connection) ----------
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const r10 = v => Math.round(v * 1e10) / 1e10;
+  const EQ_FMAX = 22050, Q_MIN = 0.05, Q_MAX = 15;
+
+  const freqToNorm = f => r10(Math.log(clamp(f, 20, EQ_FMAX) / 20) / Math.log(EQ_FMAX / 20));
+  const normToFreq = v => Math.round(20 * Math.pow(EQ_FMAX / 20, clamp(v, 0, 1)));
+  const qToNorm = q => r10(Math.log(clamp(q, Q_MIN, Q_MAX) / Q_MIN) / Math.log(Q_MAX / Q_MIN));
+  const normToQ = v => Math.round(Q_MIN * Math.pow(Q_MAX / Q_MIN, clamp(v, 0, 1)) * 100) / 100;
+  const eqGainToNorm = db => clamp((db + 20) / 40, 0, 1);
+  const normToEqGain = v => clamp(Math.round((v * 40 - 20) * 10) / 10, -20, 20);
+  const inGainToNorm = db => clamp((db + 40) / 90, 0, 1);      // Ui12/Ui16: -40..+50 dB
+  const normToInGain = v => clamp(Math.round((v * 90 - 40) * 10) / 10, -40, 50);
+  const vuToDb = v => clamp(Math.round((v * 80 - 80) * 10) / 10, -80, 0);
+  const HPF_SLOPES = [12, 24, 36];
+
+  // ---------- Mensagens da mesa ----------
+  // A mesa envia linhas "3:::SETD^caminho^valor", "3:::SETS^caminho^texto" e "3:::VU2^base64"
+  function parseLines(raw) {
+    let d = String(raw);
+    if (d.startsWith('3:::')) d = d.slice(4); else if (/^\d:/.test(d)) return [];
+    return d.split('\n').filter(Boolean);
+  }
+  function parseLine(line) {
+    if (line.startsWith('SETD^') || line.startsWith('SETS^')) {
+      const i = line.indexOf('^', 5);
+      if (i < 0) return null;
+      const path = line.slice(5, i), val = line.slice(i + 1);
+      return { kind: 'set', path, value: line[3] === 'D' ? Number(val) : val };
+    }
+    if (line.startsWith('VU2^')) return { kind: 'vu', data: line.slice(4) };
+    return { kind: 'other', line };
+  }
+  function decodeVu(b64, atobFn) {
+    const s = (atobFn || atob)(b64);
+    const e = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) e[i] = s.charCodeAt(i);
+    const blocks = [['input', 6], ['player', 6], ['sub', 7], ['fx', 7], ['aux', 5], ['master', 5], ['line', 6]];
+    const out = {}; const r = 0.004167508166392142; let i = 8;
+    blocks.forEach(([k, size], idx) => {
+      out[k] = [];
+      for (let n = 0; n < (e[idx] || 0); n++) {
+        out[k].push({ pre: e[i] * r, post: e[i + 1] * r, fader: e[i + 2] * r });
+        i += size;
+      }
+    });
+    return out;
+  }
+  const cmd = {
+    setd: (p, v) => `3:::SETD^${p}^${v}`,
+    alive: () => '3:::ALIVE',
+  };
+  // caminhos de um canal de entrada (n = 1..12)
+  const P = {
+    ch: n => `i.${n - 1}`,
+    band: (n, b, prm) => `i.${n - 1}.eq.b${b}.${prm}`,
+    hpf: (n, prm) => `i.${n - 1}.eq.hpf.${prm}`,
+    bypass: n => `i.${n - 1}.eq.bypass`,
+    gain: n => `i.${n - 1}.gain`,
+    name: n => `i.${n - 1}.name`,
+    stereo: n => `i.${n - 1}.stereoIndex`,
+  };
+
+  // Lê do estado bruto da mesa o EQ de um canal em unidades reais
+  function readChannel(state, n) {
+    const g = (p, d) => (state[p] === undefined ? d : state[p]);
+    const bands = [1, 2, 3, 4].map(b => ({
+      band: b,
+      freq: normToFreq(g(P.band(n, b, 'freq'), freqToNorm([100, 500, 2000, 8000][b - 1]))),
+      gain: normToEqGain(g(P.band(n, b, 'gain'), 0.5)),
+      q: normToQ(g(P.band(n, b, 'q'), qToNorm(1))),
+    }));
+    return {
+      n,
+      name: g(P.name(n), '') || `CH ${n}`,
+      bypass: !!g(P.bypass(n), 0),
+      hpf: { freq: normToFreq(g(P.hpf(n, 'freq'), 0)), slope: HPF_SLOPES[clamp(Math.round(g(P.hpf(n, 'slope'), 0)), 0, 2)] },
+      bands,
+      gainDb: state[P.gain(n)] === undefined ? null : normToInGain(state[P.gain(n)]),
+      stereoIndex: g(P.stereo(n), -1),
+    };
+  }
+  function linkedChannels(state, n) {
+    const si = state[P.stereo(n)];
+    if (si === 0) return [n, n + 1];
+    if (si === 1) return [n, n - 1];
+    return [n];
+  }
+
+  // ---------- Resposta do EQ (para desenhar a curva) ----------
+  function peakingDb(f, f0, gainDb, q, fs = 48000) {
+    if (Math.abs(gainDb) < 0.01) return 0;
+    const A = Math.pow(10, gainDb / 40), w0 = 2 * Math.PI * f0 / fs, al = Math.sin(w0) / (2 * q), c = Math.cos(w0);
+    const b0 = 1 + al * A, b1 = -2 * c, b2 = 1 - al * A, a0 = 1 + al / A, a1 = -2 * c, a2 = 1 - al / A;
+    const w = 2 * Math.PI * f / fs, cw = Math.cos(w), c2 = Math.cos(2 * w), sw = Math.sin(w), s2 = Math.sin(2 * w);
+    const nr = b0 + b1 * cw + b2 * c2, ni = -(b1 * sw + b2 * s2);
+    const dr = a0 + a1 * cw + a2 * c2, di = -(a1 * sw + a2 * s2);
+    return 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di));
+  }
+  function hpfDb(f, fc, slope) {
+    if (fc <= 21) return 0;
+    const n = slope / 6;
+    return -10 * Math.log10(1 + Math.pow(fc / f, 2 * n));
+  }
+  function eqResponse(ch, f) {
+    if (!ch) return 0;
+    let db = hpfDb(f, ch.hpf.freq, ch.hpf.slope);
+    if (!ch.bypass) ch.bands.forEach(b => { db += peakingDb(f, b.freq, b.gain, b.q); });
+    return db;
+  }
+
+  // ---------- Bandas de 1/3 de oitava ----------
+  const THIRD = [25, 31.5, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000,
+    2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000];
+  function thirdOctave(powerBins, sampleRate, fftSize) {
+    // powerBins: potência linear por bin (média no tempo)
+    const binHz = sampleRate / fftSize;
+    return THIRD.map(fc => {
+      const lo = fc / Math.pow(2, 1 / 6), hi = fc * Math.pow(2, 1 / 6);
+      let s = 0, n = 0;
+      for (let k = Math.max(1, Math.floor(lo / binHz)); k <= Math.min(powerBins.length - 1, Math.ceil(hi / binHz)); k++) {
+        const f = k * binHz; if (f < lo || f > hi) continue; s += powerBins[k]; n++;
+      }
+      if (!n) { const k = Math.round(fc / binHz); s = powerBins[clamp(k, 1, powerBins.length - 1)]; }
+      return 10 * Math.log10(s + 1e-20);
+    });
+  }
+
+  // ---------- Perfis por fonte ----------
+  // alvo: pontos (Hz, dB relativo) de um equilíbrio tonal "bom" medido na plateia
+  const LTASS = [[63, -24], [100, -12], [160, -3], [250, 0], [500, 0], [1000, -4], [2000, -7], [4000, -9], [6300, -12], [10000, -17], [16000, -26]];
+  const Z = (nome, lo, hi, tipo, ouve) => ({ nome, lo, hi, tipo, ouve });
+  const PROFILES = {
+    pregacao: {
+      nome: 'Pregação / voz falada', hpf: 110, core: [250, 4000], alvo: LTASS,
+      zonas: [Z('Ronco / proximidade', 90, 180, 'corte', 'voz grave demais, "ronco" quando o pregador chega perto do microfone'),
+        Z('Embolado', 200, 450, 'corte', 'voz abafada, sem definição, cansativa'),
+        Z('Som de caixa / nasal', 500, 1250, 'corte', 'voz "de telefone", fanha ou de dentro de uma caixa'),
+        Z('Aspereza', 2000, 4500, 'corte', 'voz estridente, que "fura" o ouvido'),
+        Z('Presença / inteligibilidade', 2000, 5000, 'reforço', 'palavras pouco claras, consoantes somem'),
+        Z('Sibilância', 5500, 9000, 'corte', '"S" e "X" chiando')],
+    },
+    vozFem: {
+      nome: 'Voz feminina (canto)', hpf: 150, core: [300, 5000],
+      alvo: [[100, -22], [160, -10], [250, -3], [400, 0], [800, -1], [1600, -4], [3150, -6], [5000, -9], [8000, -13], [12500, -18], [16000, -24]],
+      zonas: [Z('Embolado', 200, 450, 'corte', 'voz abafada, mistura com os instrumentos'),
+        Z('Som de caixa / nasal', 600, 1250, 'corte', 'voz fanha, "de telefone"'),
+        Z('Aspereza', 2000, 5000, 'corte', 'agudos que machucam nas notas altas'),
+        Z('Presença', 2500, 5000, 'reforço', 'voz escondida atrás da banda'),
+        Z('Sibilância', 6300, 10000, 'corte', '"S" chiando'),
+        Z('Ar / brilho', 10000, 16000, 'reforço', 'voz sem brilho')],
+    },
+    vozMasc: {
+      nome: 'Voz masculina (canto)', hpf: 100, core: [200, 4000],
+      alvo: [[63, -24], [100, -10], [160, -2], [250, 0], [500, 0], [1000, -3], [2000, -6], [4000, -9], [6300, -12], [10000, -17], [16000, -25]],
+      zonas: [Z('Ronco / proximidade', 90, 180, 'corte', 'grave excessivo, embola o som'),
+        Z('Embolado', 200, 450, 'corte', 'voz abafada, sem definição'),
+        Z('Som de caixa / nasal', 500, 1250, 'corte', 'voz fanha, "de telefone"'),
+        Z('Aspereza', 2000, 4500, 'corte', 'voz estridente'),
+        Z('Presença', 2000, 5000, 'reforço', 'voz escondida atrás da banda'),
+        Z('Sibilância', 5500, 9000, 'corte', '"S" chiando')],
+    },
+    coro: {
+      nome: 'Backing vocal / coral', hpf: 160, core: [300, 4000],
+      alvo: [[100, -24], [160, -10], [250, -3], [400, 0], [800, -1], [1600, -4], [3150, -7], [5000, -10], [8000, -14], [12500, -19], [16000, -25]],
+      zonas: [Z('Embolado', 200, 500, 'corte', 'vozes embolando com a voz principal'),
+        Z('Som de caixa / nasal', 600, 1250, 'corte', 'som fanho'),
+        Z('Aspereza', 2000, 5000, 'corte', 'vozes estridentes'),
+        Z('Sibilância', 6300, 10000, 'corte', '"S" chiando')],
+    },
+    violao: {
+      nome: 'Violão', hpf: 90, core: [150, 6300],
+      alvo: [[63, -20], [100, -8], [160, -2], [250, 0], [500, -1], [1000, -3], [2000, -5], [4000, -7], [6300, -9], [10000, -13], [16000, -20]],
+      zonas: [Z('Ronco do corpo', 90, 200, 'corte', 'violão "boom", grave que embola'),
+        Z('Embolado', 200, 400, 'corte', 'som abafado'),
+        Z('Som de captador ("pato")', 700, 1600, 'corte', 'som duro, de plástico, típico de captador piezo'),
+        Z('Brilho / ataque', 2500, 5000, 'reforço', 'violão sem definição das cordas'),
+        Z('Aspereza', 2500, 5000, 'corte', 'cordas estridentes'),
+        Z('Ar', 8000, 14000, 'reforço', 'falta de brilho')],
+    },
+    teclado: {
+      nome: 'Teclado / piano', hpf: 40, core: [100, 6300],
+      alvo: [[40, -12], [63, -4], [100, -1], [250, 0], [500, -1], [1000, -3], [2000, -5], [4000, -7], [8000, -11], [16000, -18]],
+      zonas: [Z('Embolado', 200, 450, 'corte', 'teclado embolando com o baixo e as vozes'),
+        Z('Médio "buzina"', 700, 1600, 'corte', 'som anasalado'),
+        Z('Aspereza', 2000, 5000, 'corte', 'piano/synth estridente')],
+    },
+    baixo: {
+      nome: 'Contrabaixo', hpf: 35, core: [50, 1000],
+      alvo: [[31.5, -10], [50, -2], [80, 0], [125, 0], [250, -3], [500, -7], [1000, -11], [2000, -15], [4000, -20], [8000, -28]],
+      zonas: [Z('Sobra de grave', 50, 125, 'corte', 'grave que domina a igreja / faz o chão vibrar'),
+        Z('Embolado', 180, 400, 'corte', 'baixo sem definição das notas'),
+        Z('Definição / ataque', 700, 1600, 'reforço', 'não dá para ouvir as notas do baixo')],
+    },
+    bumbo: {
+      nome: 'Bumbo', hpf: 35, core: [50, 5000],
+      alvo: [[31.5, -10], [50, -1], [63, 0], [100, -1], [250, -8], [500, -12], [1000, -12], [2500, -10], [5000, -14], [10000, -22]],
+      zonas: [Z('Som de caixa de papelão', 250, 600, 'corte', 'bumbo "oco", sem pegada'),
+        Z('Ataque do batedor', 2000, 5000, 'reforço', 'bumbo sem ataque, só "bum"')],
+    },
+    caixa: {
+      nome: 'Caixa (bateria)', hpf: 90, core: [150, 6300],
+      alvo: [[63, -18], [100, -6], [200, 0], [400, -2], [800, -4], [1600, -5], [3150, -5], [6300, -9], [10000, -14], [16000, -22]],
+      zonas: [Z('Ronco', 100, 180, 'corte', 'caixa pesada demais'),
+        Z('"Anel" da pele', 400, 1000, 'corte', 'caixa com som de lata / ressonância metálica'),
+        Z('Estalo', 2000, 5000, 'reforço', 'caixa sem estalo')],
+    },
+    pratos: {
+      nome: 'Pratos / overhead', hpf: 250, core: [500, 12500],
+      alvo: [[160, -20], [250, -8], [500, -2], [1000, 0], [2000, -1], [4000, -2], [8000, -4], [12500, -7], [16000, -11]],
+      zonas: [Z('Embolado', 250, 500, 'corte', 'sujeira de bumbo e caixa'),
+        Z('Aspereza', 2000, 5000, 'corte', 'pratos que machucam o ouvido')],
+    },
+    guitarra: {
+      nome: 'Guitarra', hpf: 90, core: [150, 5000],
+      alvo: [[63, -22], [100, -8], [200, -1], [400, 0], [800, 0], [1600, -2], [3150, -5], [5000, -9], [8000, -18], [16000, -30]],
+      zonas: [Z('Embolado', 200, 400, 'corte', 'guitarra embolando com voz e teclado'),
+        Z('Aspereza', 2000, 4500, 'corte', 'guitarra estridente'),
+        Z('Chiado / fritura', 5000, 9000, 'corte', 'distorção chiando')],
+    },
+    sopro: {
+      nome: 'Sopro (sax, trompete, flauta)', hpf: 120, core: [250, 6300],
+      alvo: [[100, -18], [160, -6], [250, -1], [500, 0], [1000, -1], [2000, -3], [4000, -6], [8000, -11], [16000, -22]],
+      zonas: [Z('Embolado', 200, 450, 'corte', 'som abafado'),
+        Z('Aspereza', 2000, 4500, 'corte', 'som estridente nas notas altas')],
+    },
+  };
+  const NAME_HINTS = [
+    [/PAST|PREG|PALAV|LOCU|LOC\b|PULP|PULPIT|FALA|MC\b/, 'pregacao'],
+    [/BACK|CORO|CORAL|BV/, 'coro'],
+    [/VIOL[AÃ]O|VLAO|VIOL\b|AC\s*GTR|ACOUS|NYLON/, 'violao'],
+    [/BAIXO|BASS|CONTRA|BX\b/, 'baixo'],
+    [/BUMB|KICK|BD\b/, 'bumbo'],
+    [/CAIXA|SNARE|SN\b|CX\b/, 'caixa'],
+    [/OH|OVER|PRAT|HAT|CYM/, 'pratos'],
+    [/TECL|KEY|PIANO|SYNTH|ORG[AÃ]O|KB/, 'teclado'],
+    [/GUIT|GTR|GUITAR/, 'guitarra'],
+    [/SAX|TROMP|FLAUT|SOPRO|TPT|TROMB/, 'sopro'],
+    [/MINIST|MULHER|CANTORA|FEM|IRM[AÃ]/, 'vozFem'],
+    [/VOZ|VOC|MIC|CANT|LEAD/, 'vozMasc'],
+  ];
+  function guessProfile(name) {
+    const n = String(name || '').toUpperCase();
+    for (const [re, p] of NAME_HINTS) if (re.test(n)) return p;
+    return null;
+  }
+
+  function interpTarget(points, f) {
+    const lf = Math.log2(f);
+    if (f <= points[0][0]) return points[0][1] - 12 * (Math.log2(points[0][0]) - lf);
+    for (let i = 1; i < points.length; i++) {
+      if (f <= points[i][0]) {
+        const [f0, d0] = points[i - 1], [f1, d1] = points[i];
+        const t = (lf - Math.log2(f0)) / (Math.log2(f1) - Math.log2(f0));
+        return d0 + t * (d1 - d0);
+      }
+    }
+    const [fl, dl] = points[points.length - 1];
+    return dl - 8 * (lf - Math.log2(fl));
+  }
+  const median = a => { const s = [...a].sort((x, y) => x - y); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+
+  // Desvio por banda em relação ao alvo (alinhado pela faixa principal do perfil)
+  function deviations(bandsDb, profile) {
+    const tgt = THIRD.map(f => interpTarget(profile.alvo, f));
+    const idx = THIRD.map((f, i) => i).filter(i => THIRD[i] >= profile.core[0] && THIRD[i] <= profile.core[1]);
+    const off = median(idx.map(i => bandsDb[i] - tgt[i]));
+    return { dev: bandsDb.map((v, i) => v - tgt[i] - off), target: tgt.map(t => t + off) };
+  }
+
+  const fmtHz = f => (f >= 1000 ? (Math.round(f / 100) / 10).toString().replace('.', ',') + ' kHz' : Math.round(f) + ' Hz');
+  const roundHz = f => (f < 100 ? Math.round(f) : f < 1000 ? Math.round(f / 5) * 5 : Math.round(f / 50) * 50);
+
+  // ---------- Motor de sugestões ----------
+  // análise: { bands:[29 dB], rings:[{freq, prom}], peakPreDb (opcional) }
+  // canal: resultado de readChannel (ou null sem mesa)
+  function suggest(analysis, profileKey, canal, opts = {}) {
+    const prof = PROFILES[profileKey];
+    const out = [];
+    const thr = opts.limiar || 4.5;
+    const { dev } = deviations(analysis.bands, prof);
+    const lowMic = opts.micLowCut || 80; // celular/tablet capta mal abaixo disso
+
+    // 1) Filtro passa-altas
+    if (prof.hpf > 30) {
+      const atual = canal ? canal.hpf.freq : null;
+      if (atual === null || atual < prof.hpf * 0.7) {
+        out.push({
+          id: 'hpf', tipo: 'hpf', freq: prof.hpf, prioridade: 100,
+          titulo: `Ligar o filtro passa-altas (HPF) em ${fmtHz(prof.hpf)}`,
+          porque: atual === null
+            ? `Para ${prof.nome.toLowerCase()}, quase nada útil existe abaixo de ${fmtHz(prof.hpf)}. O filtro tira ronco, vento, batidas no pedestal e libera espaço para o baixo e o bumbo.`
+            : `Hoje o HPF está em ${atual <= 21 ? 'desligado' : fmtHz(atual)}. Para ${prof.nome.toLowerCase()}, subir para ${fmtHz(prof.hpf)} tira ronco e sujeira sem mudar o timbre.`,
+        });
+      }
+    }
+
+    // 2) Zonas de corte e reforço
+    const cand = [];
+    prof.zonas.forEach(z => {
+      const ids = THIRD.map((f, i) => i).filter(i => THIRD[i] >= z.lo && THIRD[i] <= z.hi && THIRD[i] >= lowMic);
+      if (!ids.length) return;
+      if (z.tipo === 'corte') {
+        let best = ids[0]; ids.forEach(i => { if (dev[i] > dev[best]) best = i; });
+        const d = dev[best];
+        if (d < thr) return;
+        let w = 1;
+        for (let j = best - 1; j >= 0 && dev[j] > d - 3 && dev[j] > thr - 1.5; j--) w++;
+        for (let j = best + 1; j < dev.length && dev[j] > d - 3 && dev[j] > thr - 1.5; j++) w++;
+        const q = w <= 1 ? 2.5 : w === 2 ? 1.6 : w === 3 ? 1.1 : 0.8;
+        // refina a frequência com interpolação parabólica no log
+        let f = THIRD[best];
+        if (best > 0 && best < dev.length - 1) {
+          const a = dev[best - 1], b = dev[best], c = dev[best + 1], den = a - 2 * b + c;
+          if (den < 0) f = f * Math.pow(2, clamp(0.5 * (a - c) / den, -0.5, 0.5) / 3);
+        }
+        const ganho = -clamp(Math.round(d * 0.6 * 2) / 2, 2, 6);
+        cand.push({ tipo: 'banda', freq: roundHz(f), ganho, q, desvio: d, zona: z, prioridade: d });
+      } else {
+        let worst = ids[0]; ids.forEach(i => { if (dev[i] < dev[worst]) worst = i; });
+        const d = dev[worst];
+        if (d > -(thr + 1)) return;
+        // só reforça se a zona inteira estiver baixa (não um vale estreito)
+        const avg = ids.reduce((s, i) => s + dev[i], 0) / ids.length;
+        if (avg > -(thr - 0.5)) return;
+        const centro = Math.sqrt(z.lo * z.hi);
+        const ganho = clamp(Math.round(-avg * 0.4 * 2) / 2, 1.5, 3);
+        cand.push({ tipo: 'banda', freq: roundHz(centro), ganho, q: 1.0, desvio: avg, zona: z, prioridade: -avg * 0.7 });
+      }
+    });
+
+    // 3) Ressonâncias estreitas persistentes
+    (analysis.rings || []).forEach(r => {
+      if (r.freq < 100 || r.freq > 12000) return;
+      cand.push({
+        tipo: 'banda', freq: roundHz(r.freq), ganho: -clamp(Math.round(r.prom * 0.4), 4, 8), q: 6, desvio: r.prom,
+        zona: { nome: 'Ressonância / anel', ouve: 'uma nota que "zumbe" ou sobra sempre na mesma frequência (pode virar microfonia)' },
+        prioridade: r.prom + 2, anel: true,
+      });
+    });
+
+    // remove sobreposições (menos de 1/3 de oitava) e conflitos corte×reforço
+    cand.sort((a, b) => b.prioridade - a.prioridade);
+    const escolhidos = [];
+    cand.forEach(c => {
+      const choque = escolhidos.some(e => Math.abs(Math.log2(e.freq / c.freq)) < (c.anel || e.anel ? 0.12 : 0.4));
+      if (!choque) escolhidos.push(c);
+    });
+    escolhidos.slice(0, 4).forEach((c, k) => {
+      const corte = c.ganho < 0;
+      out.push({
+        id: 'b' + k + '_' + c.freq, tipo: 'banda', freq: c.freq, ganho: c.ganho, q: c.q, prioridade: c.prioridade,
+        titulo: `${corte ? 'Cortar' : 'Reforçar'} ${Math.abs(c.ganho).toString().replace('.', ',')} dB em ${fmtHz(c.freq)} (Q ${String(c.q).replace('.', ',')}) — ${c.zona.nome}`,
+        porque: c.anel
+          ? `Há um pico estreito ${c.desvio.toFixed(0)} dB acima das frequências vizinhas, que persiste o tempo todo. Sintoma: ${c.zona.ouve}. Confirme de ouvido antes de cortar.`
+          : corte
+          ? `Essa região está ${c.desvio.toFixed(0)} dB acima do esperado para ${prof.nome.toLowerCase()}. Sintoma: ${c.zona.ouve}.`
+          : `Essa região está ${Math.abs(c.desvio).toFixed(0)} dB abaixo do esperado. Sintoma: ${c.zona.ouve}. Antes de reforçar, confira se o problema não é volume ou posição do microfone.`,
+      });
+    });
+
+    // 4) Ganho de entrada (a partir dos medidores da mesa)
+    if (analysis.peakPreDb !== undefined && analysis.peakPreDb !== null && canal && canal.gainDb !== null) {
+      const pk = analysis.peakPreDb;
+      if (pk > -4) {
+        const novo = Math.round((canal.gainDb - (pk + 12)) * 2) / 2;
+        out.push({ id: 'gain', tipo: 'ganho', valor: novo, prioridade: 200,
+          titulo: `Baixar o ganho de entrada para ${String(novo).replace('.', ',')} dB`,
+          porque: `O pico chegou a ${pk.toFixed(0)} dB, muito perto de distorcer. Ganho certo vem antes de qualquer equalização.` });
+      } else if (pk < -36) {
+        const novo = Math.min(50, Math.round((canal.gainDb + (-18 - pk)) * 2) / 2);
+        out.push({ id: 'gain', tipo: 'ganho', valor: novo, prioridade: 150,
+          titulo: `Subir o ganho de entrada para ${String(novo).replace('.', ',')} dB`,
+          porque: `O sinal está fraco (pico de ${pk.toFixed(0)} dB). Com pouco ganho você acaba subindo demais o fader e o ruído aparece.` });
+      }
+    }
+    out.sort((a, b) => b.prioridade - a.prioridade);
+    return { sugestoes: out, desvios: dev };
+  }
+
+  // Escolhe em qual banda do EQ aplicar uma sugestão
+  function pickBand(canal, freq) {
+    if (!canal) return 1;
+    const oct = b => Math.abs(Math.log2(b.freq / freq));
+    // 1) banda já mexida perto da mesma frequência
+    const perto = canal.bands.filter(b => Math.abs(b.gain) >= 0.5 && oct(b) < 0.34).sort((a, b) => oct(a) - oct(b));
+    if (perto.length) return perto[0].band;
+    // 2) banda livre (ganho ~0), preferindo a "natural" pela frequência
+    const natural = freq < 250 ? 1 : freq < 1500 ? 2 : freq < 5000 ? 3 : 4;
+    const livres = canal.bands.filter(b => Math.abs(b.gain) < 0.5);
+    if (livres.length) {
+      livres.sort((a, b) => Math.abs(a.band - natural) - Math.abs(b.band - natural));
+      return livres[0].band;
+    }
+    // 3) nenhuma livre: a de menor efeito
+    return [...canal.bands].sort((a, b) => Math.abs(a.gain) - Math.abs(b.gain))[0].band;
+  }
+
+  // ---------- Detecção de picos estreitos num espectro fino (dB por bin) ----------
+  // devolve [{bin, freq, prom, db}] — usa média local no domínio dB com somas prefixadas
+  function narrowPeaks(db, sampleRate, fftSize, fMin = 80, fMax = 12000, minProm = 12) {
+    const n = db.length, binHz = sampleRate / fftSize;
+    const pre = new Float64Array(n + 1);
+    for (let i = 0; i < n; i++) pre[i + 1] = pre[i] + (isFinite(db[i]) ? db[i] : -140);
+    const out = [];
+    const k0 = Math.max(3, Math.floor(fMin / binHz)), k1 = Math.min(n - 4, Math.ceil(fMax / binHz));
+    for (let k = k0; k <= k1; k++) {
+      const v = db[k];
+      if (!(v >= db[k - 1] && v >= db[k + 1] && v > db[k - 2] && v > db[k + 2])) continue;
+      const f = k * binHz;
+      const half = Math.max(6, Math.round((f * (Math.pow(2, 1 / 6) - 1)) / binHz));
+      const lo = Math.max(0, k - half), hi = Math.min(n - 1, k + half), ex = 3;
+      const sum = pre[hi + 1] - pre[lo] - (pre[Math.min(n, k + ex + 1)] - pre[Math.max(0, k - ex)]);
+      const cnt = (hi - lo + 1) - (Math.min(n, k + ex + 1) - Math.max(0, k - ex));
+      if (cnt <= 0) continue;
+      const prom = v - sum / cnt;
+      if (prom >= minProm) {
+        // interpolação parabólica para frequência precisa
+        const a = db[k - 1], b = v, c = db[k + 1], den = a - 2 * b + c;
+        const p = den < 0 ? 0.5 * (a - c) / den : 0;
+        out.push({ bin: k, freq: (k + p) * binHz, prom, db: v });
+      }
+    }
+    return out.sort((a, b) => b.prom - a.prom);
+  }
+
+  // Detector de microfonia em tempo real: chame update() a cada quadro
+  function FeedbackDetector(opts = {}) {
+    const holdMs = opts.holdMs || 350, minProm = opts.minProm || 16, minDb = opts.minDb || -70;
+    let cand = null; const alerted = [];
+    return {
+      update(db, sampleRate, fftSize, tMs) {
+        const peaks = narrowPeaks(db, sampleRate, fftSize, 80, 12000, minProm).filter(p => p.db > minDb).slice(0, 3);
+        if (!peaks.length) { cand = null; return null; }
+        const p = peaks[0];
+        if (cand && Math.abs(p.bin - cand.bin) <= 2) {
+          cand.last = tMs; cand.freq = p.freq; cand.prom = Math.max(cand.prom, p.prom); cand.db = p.db; cand.bin = p.bin;
+          if (!cand.fired && tMs - cand.start >= holdMs) {
+            cand.fired = true;
+            const ev = { freq: cand.freq, prom: cand.prom, db: cand.db, t: tMs };
+            alerted.push(ev); return ev;
+          }
+        } else {
+          cand = { bin: p.bin, freq: p.freq, prom: p.prom, db: p.db, start: tMs, last: tMs, fired: false };
+        }
+        return null;
+      },
+      reset() { cand = null; },
+      history: alerted,
+      current: () => cand,
+    };
+  }
+
+  const NOTES = ['Dó', 'Dó#', 'Ré', 'Ré#', 'Mi', 'Fá', 'Fá#', 'Sol', 'Sol#', 'Lá', 'Lá#', 'Si'];
+  function noteName(f) {
+    const m = Math.round(69 + 12 * Math.log2(f / 440));
+    return NOTES[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+  }
+
+  return {
+    clamp, freqToNorm, normToFreq, qToNorm, normToQ, eqGainToNorm, normToEqGain, inGainToNorm, normToInGain, vuToDb,
+    parseLines, parseLine, decodeVu, cmd, P, readChannel, linkedChannels,
+    peakingDb, hpfDb, eqResponse, THIRD, thirdOctave, PROFILES, guessProfile, interpTarget, deviations, suggest, pickBand,
+    narrowPeaks, FeedbackDetector, noteName, fmtHz, roundHz, HPF_SLOPES,
+  };
+})();
+if (typeof module !== 'undefined') module.exports = Core;
+
+</script>
+<script>
+(() => {
+const VERSAO = '1.1 · 07/11/2026';
+const C = Core, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('som.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('som.' + k, JSON.stringify(v)); } catch {} },
+};
+const S = {
+  ip: LS.get('ip', ''), demo: LS.get('demo', false), confirm: LS.get('confirm', true), lock: LS.get('lock', false),
+  wake: LS.get('wake', true), key: LS.get('key', ''), model: LS.get('model', 'claude-sonnet-5-5'),
+  profiles: LS.get('profiles', {}),
+  input: LS.get('input', ''), linha: LS.get('linha', false), autoSolo: LS.get('autoSolo', true),
+};
+const NCH = 12;
+let sel = LS.get('sel', 1);
+const mix = { ws: null, status: 'off', state: {}, vu: null, timer: null, alive: null, wantOpen: false, peak: {} };
+const undo = [];          // [{label, ch, writes:[[path, old]]}]
+let lastAnalysis = {};    // por canal
+let lastSug = {};         // por canal
+const chatHist = [];
+
+// ---------------- util ----------------
+function log(t) { const el = $('#log'); const ts = new Date().toLocaleTimeString('pt-BR'); el.textContent = `[${ts}] ${t}\n` + el.textContent.slice(0, 4000); }
+let toastT; function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2600); }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = v => String(v).replace('.', ',');
+
+// ---------------- mesa ----------------
+function setMixStatus(st, txt) {
+  mix.status = st;
+  $('#mixDot').className = 'dot ' + ({ on: 'ok', wait: 'warn', err: 'bad', demo: 'ok' }[st] || '');
+  $('#mixTxt').textContent = txt;
+  $('#btnConnect').textContent = (st === 'on' || st === 'demo' || st === 'wait') ? 'Desconectar' : 'Conectar mesa';
+}
+function connected() { return mix.status === 'on' || mix.status === 'demo'; }
+function connectMixer() {
+  disconnectMixer(true);
+  if (S.demo) { startDemo(); return; }
+  const ip = (S.ip || '').trim();
+  if (!ip) { switchTab('tCfg'); $('#cfgIp').focus(); toast('Informe o IP da mesa em Ajustes'); return; }
+  if (location.protocol === 'https:') {
+    showInfo('Não dá para conectar daqui', 'Esta página foi aberta por um endereço https, e o navegador bloqueia a ligação com a mesa (que usa ws://). Abra o app pelo servidor local do tablet (http://localhost…), como explicado nas instruções.');
+    return;
+  }
+  mix.wantOpen = true;
+  setMixStatus('wait', 'Conectando a ' + ip + '…');
+  let ws;
+  try { ws = new WebSocket('ws://' + ip); } catch (e) { setMixStatus('err', 'Endereço inválido'); return; }
+  mix.ws = ws;
+  ws.onopen = () => {
+    setMixStatus('on', 'Mesa conectada · ' + ip); log('Conectado a ' + ip);
+    clearInterval(mix.alive); mix.alive = setInterval(() => send(C.cmd.alive()), 1000);
+  };
+  ws.onmessage = ev => { if (typeof ev.data === 'string') C.parseLines(ev.data).forEach(handleLine); };
+  ws.onerror = () => log('Erro na conexão com ' + ip);
+  ws.onclose = () => {
+    clearInterval(mix.alive);
+    if (mix.ws !== ws) return;
+    mix.ws = null;
+    if (mix.wantOpen) { setMixStatus('err', 'Sem resposta da mesa · tentando de novo'); mix.timer = setTimeout(connectMixer, 2500); }
+    else setMixStatus('off', 'Mesa desconectada');
+  };
+}
+function disconnectMixer(silent) {
+  mix.wantOpen = false; clearTimeout(mix.timer); clearInterval(mix.alive); clearInterval(mix.demoT);
+  if (mix.ws) { const w = mix.ws; mix.ws = null; try { w.close(); } catch {} }
+  if (!silent) setMixStatus('off', 'Mesa desconectada');
+}
+let renderPending = false;
+function handleLine(line) {
+  const m = C.parseLine(line);
+  if (!m) return;
+  if (m.kind === 'set') {
+    mix.state[m.path] = m.value;
+    if (!renderPending) { renderPending = true; requestAnimationFrame(() => { renderPending = false; renderChannels(); renderEq(); renderHeader(); }); }
+  } else if (m.kind === 'vu') {
+    try { mix.vu = C.decodeVu(m.data); trackPeaks(); } catch {}
+  }
+}
+function send(msg) {
+  if (mix.status === 'demo') { demoReceive(msg); return true; }
+  if (mix.ws && mix.ws.readyState === 1) { mix.ws.send(msg); return true; }
+  return false;
+}
+function setd(path, value) {
+  const v = Math.round(value * 1e10) / 1e10;
+  if (!send(C.cmd.setd(path, v))) return false;
+  mix.state[path] = v; return true;
+}
+function trackPeaks() {
+  const now = performance.now();
+  (mix.vu.input || []).forEach((v, i) => {
+    const db = C.vuToDb(v.pre), p = mix.peak[i + 1] || { db: -80, t: 0 };
+    if (db >= p.db || now - p.t > 1500) mix.peak[i + 1] = { db, t: now };
+  });
+}
+// demonstração: simula uma Ui16
+function startDemo() {
+  const st = mix.state = {};
+  const names = ['PASTOR', 'VOZ 1', 'VOZ 2', 'BACK', 'VIOLAO', 'TECLADO', 'BAIXO', 'BUMBO', 'CAIXA', 'OH', 'GUITARRA', 'SAX'];
+  for (let n = 1; n <= NCH; n++) {
+    st[C.P.name(n)] = names[n - 1]; st[C.P.hpf(n, 'freq')] = 0; st[C.P.hpf(n, 'slope')] = 0; st[C.P.bypass(n)] = 0;
+    st[C.P.gain(n)] = C.inGainToNorm(25); st[C.P.stereo(n)] = -1;
+    [100, 500, 2000, 8000].forEach((f, k) => { st[C.P.band(n, k + 1, 'freq')] = C.freqToNorm(f); st[C.P.band(n, k + 1, 'gain')] = 0.5; st[C.P.band(n, k + 1, 'q')] = C.qToNorm(1); });
+  }
+  setMixStatus('demo', 'Modo demonstração');
+  log('Modo demonstração ligado');
+  mix.demoT = setInterval(() => {
+    const t = performance.now() / 1000;
+    mix.vu = { input: Array.from({ length: NCH }, (_, i) => { const v = 0.55 + 0.25 * Math.sin(t * (1.3 + i * 0.37)) * Math.random(); return { pre: v, post: v, fader: v }; }) };
+    trackPeaks(); renderVu();
+  }, 80);
+  renderChannels(); renderEq(); renderHeader();
+}
+function demoReceive(msg) { log('→ ' + msg.slice(4)); }
+
+// ---------------- canais ----------------
+function chInfo(n) { return C.readChannel(mix.state, n); }
+function chName(n) { return connected() ? chInfo(n).name : `Canal ${n}`; }
+function profOf(n) {
+  if (S.profiles[n]) return S.profiles[n];
+  return (connected() && C.guessProfile(chInfo(n).name)) || null;
+}
+function renderChannels() {
+  const box = $('#chs');
+  if (box.children.length !== NCH) {
+    box.innerHTML = '';
+    for (let n = 1; n <= NCH; n++) {
+      const b = document.createElement('button'); b.className = 'ch'; b.dataset.n = n;
+      b.innerHTML = `<span class="num">${n}</span><span class="nm"></span><span class="vu"><b></b></span>`;
+      b.onclick = () => selectCh(n); box.appendChild(b);
+    }
+  }
+  [...box.children].forEach(b => {
+    const n = +b.dataset.n, p = profOf(n);
+    b.classList.toggle('sel', n === sel);
+    b.querySelector('.nm').innerHTML = esc(chName(n)) + `<span class="pf">${p ? esc(C.PROFILES[p].nome) : 'sem perfil'}</span>`;
+  });
+}
+function renderVu() {
+  [...$('#chs').children].forEach(b => {
+    const v = mix.vu && mix.vu.input && mix.vu.input[+b.dataset.n - 1];
+    b.querySelector('.vu b').style.height = v ? Math.max(0, Math.min(100, (C.vuToDb(v.pre) + 60) / 60 * 100)) + '%' : '0%';
+  });
+}
+function selectCh(n) { sel = n; LS.set('sel', n); renderChannels(); renderHeader(); renderEq(); renderProfiles(); renderSug(); }
+function renderHeader() {
+  const p = profOf(sel);
+  $('#chTitle').textContent = `${sel} · ${chName(sel)}`;
+  let sub = p ? C.PROFILES[p].nome : 'Escolha o perfil em Sugestões';
+  if (connected()) { const c = chInfo(sel); if (c.gainDb !== null) sub += ` · ganho ${num(c.gainDb)} dB`; if (c.stereoIndex >= 0) sub += ' · canal estéreo'; }
+  $('#chSub').textContent = sub;
+}
+function renderEq() {
+  const el = $('#eqstrip');
+  if (!connected()) { el.innerHTML = `<div class="eqcell" style="grid-column:1/-1">Conecte a mesa para ver e ajustar o EQ deste canal.</div>`; return; }
+  const c = chInfo(sel);
+  const cell = (t, v, cls = '') => `<div class="eqcell ${cls}">${t}<b>${v}</b></div>`;
+  el.innerHTML = cell('Passa-altas', c.hpf.freq <= 21 ? 'desligado' : `${C.fmtHz(c.hpf.freq)}</b><b>${c.hpf.slope} dB/oit`) +
+    c.bands.map(b => cell(`Banda ${b.band}${c.bypass ? ' (bypass)' : ''}`, `${C.fmtHz(b.freq)}</b><b>${b.gain > 0 ? '+' : ''}${num(b.gain)} dB · Q ${num(b.q)}`, b.gain <= -0.5 ? 'cut' : b.gain >= 0.5 ? 'boost' : '')).join('') +
+    `<button class="btn small eqbtn" id="btnUndoLast">Desfazer última</button>`;
+  $('#btnUndoLast').onclick = undoLast;
+}
+
+// ---------------- aplicar na mesa ----------------
+function describeAction(a, n) {
+  if (a.tipo === 'hpf') return `Passa-altas do canal ${n} em ${C.fmtHz(a.freq)}`;
+  if (a.tipo === 'ganho') return `Ganho de entrada do canal ${n} em ${num(a.valor)} dB`;
+  return `${a.ganho < 0 ? 'Corte' : 'Reforço'} de ${num(Math.abs(a.ganho))} dB em ${C.fmtHz(a.freq)} (Q ${num(a.q)}) na banda ${C.pickBand(chInfo(n), a.freq)} do canal ${n}`;
+}
+function writesFor(a, n) {
+  const w = [];
+  C.linkedChannels(mix.state, n).forEach(ch => {
+    if (a.tipo === 'hpf') {
+      w.push([C.P.hpf(ch, 'freq'), C.freqToNorm(C.clamp(a.freq, 20, 1000))]);
+    } else if (a.tipo === 'ganho') {
+      w.push([C.P.gain(ch), C.inGainToNorm(C.clamp(a.valor, -40, 50))]);
+    } else if (a.tipo === 'banda') {
+      const b = C.pickBand(chInfo(n), a.freq);
+      w.push([C.P.band(ch, b, 'freq'), C.freqToNorm(a.freq)]);
+      w.push([C.P.band(ch, b, 'q'), C.qToNorm(C.clamp(a.q, 0.1, 15))]);
+      w.push([C.P.band(ch, b, 'gain'), C.eqGainToNorm(C.clamp(a.ganho, -12, 6))]);
+      if (mix.state[C.P.bypass(ch)]) w.push([C.P.bypass(ch), 0]);
+    }
+  });
+  return w;
+}
+async function applyAction(a, n, onDone) {
+  if (S.lock) { toast('Modo "só sugerir" ligado em Ajustes'); return; }
+  if (!connected()) { toast('Conecte a mesa primeiro'); return; }
+  const label = describeAction(a, n);
+  if (S.confirm && !(await confirmDlg('Aplicar na mesa?', label))) return;
+  const writes = writesFor(a, n);
+  const old = writes.map(([p]) => [p, mix.state[p]]);
+  let ok = true;
+  writes.forEach(([p, v]) => { ok = setd(p, v) && ok; });
+  if (!ok) { toast('Não consegui enviar para a mesa'); return; }
+  undo.push({ label, ch: n, writes: old });
+  log('Aplicado: ' + label);
+  toast('Aplicado: ' + label);
+  renderEq(); if (onDone) onDone();
+}
+function undoLast() {
+  const u = undo.pop(); if (!u) { toast('Nada para desfazer'); return; }
+  u.writes.reverse().forEach(([p, v]) => { if (v !== undefined) setd(p, v); });
+  log('Desfeito: ' + u.label); toast('Desfeito: ' + u.label); renderEq(); renderSug();
+}
+
+// ---------------- áudio ----------------
+const A = { ctx: null, an: null, live: null, raw: null, on: false, frozen: false };
+async function startMic() {
+  if (A.on) { stopMic(); return; }
+  if (!window.isSecureContext || !navigator.mediaDevices) {
+    showInfo('Microfone bloqueado', 'O navegador só libera o microfone quando o app é aberto por http://localhost (servidor local do tablet) ou https. Veja as instruções de instalação.');
+    return;
+  }
+  try {
+    const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 };
+    if (S.input) audio.deviceId = { exact: S.input };
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio }); }
+    catch (e) {
+      if (!S.input) throw e;
+      delete audio.deviceId; stream = await navigator.mediaDevices.getUserMedia({ audio });
+      toast('A placa escolhida não respondeu; usando o microfone padrão');
+    }
+    A.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = A.ctx.createMediaStreamSource(stream);
+    A.an = A.ctx.createAnalyser(); A.an.fftSize = 8192; A.an.smoothingTimeConstant = 0; A.an.minDecibels = -140; A.an.maxDecibels = 0;
+    src.connect(A.an);
+    A.stream = stream; A.raw = new Float32Array(A.an.frequencyBinCount); A.live = new Float32Array(A.an.frequencyBinCount).fill(-140);
+    A.td = new Float32Array(A.an.fftSize);
+    A.on = true;
+    const label = (stream.getAudioTracks()[0] || {}).label || '';
+    $('#micDot').className = 'dot ok'; $('#micTxt').textContent = (S.linha ? 'Ouvindo a mesa' : 'Ouvindo a igreja') + (label ? ' · ' + label.slice(0, 28) : '');
+    $('#btnMic').textContent = 'Desligar áudio';
+    listInputs();
+(() => {
+  let off = null; try { off = sessionStorage.getItem('som.offline'); } catch {}
+  $('#verInfo').innerHTML = `Versão <b>${VERSAO}</b>` + (off ? `<br>Sem internet: usando a cópia salva em ${esc(off)}.` : '');
+  $('#btnUpdate').onclick = async () => { if (undo.length && !(await confirmDlg('Recarregar o app?', 'As mudanças na mesa continuam lá, mas o histórico de "desfazer" será perdido.'))) return; undo.length = 0; location.reload(); };
+})();
+    $('#specOverlay').style.display = 'none';
+    log(`Microfone ligado (${A.ctx.sampleRate} Hz)`);
+    keepAwake();
+  } catch (e) {
+    showInfo('Não consegui abrir o microfone', 'Permita o uso do microfone para este site nas configurações do Chrome. Detalhe: ' + e.message);
+  }
+}
+function stopMic() {
+  A.on = false; try { A.stream.getTracks().forEach(t => t.stop()); A.ctx.close(); } catch {}
+  $('#micDot').className = 'dot'; $('#micTxt').textContent = 'Áudio desligado'; $('#btnMic').textContent = 'Ligar áudio';
+  $('#specOverlay').style.display = '';
+}
+let knownInputs = null;
+async function listInputs() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+  const sel = $('#cfgInput');
+  sel.innerHTML = '<option value="">Microfone do tablet (padrão)</option>' + devs.map((d, i) => `<option value="${esc(d.deviceId)}">${esc(d.label || 'Entrada de áudio ' + (i + 1))}</option>`).join('');
+  sel.value = devs.some(d => d.deviceId === S.input) ? S.input : '';
+  const ids = devs.map(d => d.deviceId);
+  if (knownInputs) {
+    const nova = devs.find(d => !knownInputs.includes(d.deviceId));
+    if (nova && /usb|umc|scarlett|interface|audio\s*in|uca|irig/i.test(nova.label || '')) {
+      toast('Placa de áudio detectada: ' + (nova.label || 'USB') + '. Escolha em Ajustes → Fonte de áudio');
+    }
+  }
+  knownInputs = ids;
+}
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) navigator.mediaDevices.addEventListener('devicechange', listInputs);
+async function restartAudio() { if (A.on) { stopMic(); await startMic(); } }
+let wakeLock = null;
+async function keepAwake() { if (!S.wake || wakeLock || !('wakeLock' in navigator)) return; try { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.onrelease = () => wakeLock = null; } catch {} }
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
+
+// ---------------- desenho do espectro ----------------
+const cv = $('#spec'), g = cv.getContext('2d');
+const FMIN = 20, FMAX = 20000;
+function fx(f, w, pad) { return pad + (Math.log10(f / FMIN) / Math.log10(FMAX / FMIN)) * (w - pad - 10); }
+function draw() {
+  requestAnimationFrame(draw);
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = cv.clientHeight;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const pad = 40, top = 34, bot = H - 26, DBMAX = -10, DBMIN = -100;
+  const fy = db => top + (DBMAX - db) / (DBMAX - DBMIN) * (bot - top);
+  // grade
+  g.font = '11px system-ui'; g.fillStyle = '#6b7385'; g.strokeStyle = '#232833'; g.lineWidth = 1;
+  [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000].forEach(f => { const x = fx(f, W, pad); g.beginPath(); g.moveTo(x, top); g.lineTo(x, bot); g.stroke(); g.fillText(f >= 1000 ? f / 1000 + 'k' : f, x - 8, H - 8); });
+  for (let d = -90; d <= -20; d += 10) { const y = fy(d); g.beginPath(); g.moveTo(pad, y); g.lineTo(W - 10, y); g.stroke(); }
+  // ao vivo (suavizado em 1/6 de oitava, médio no tempo)
+  if (A.on) {
+    if (!A.frozen) {
+      A.an.getFloatFrequencyData(A.raw);
+      for (let i = 0; i < A.raw.length; i++) A.live[i] = A.live[i] * 0.75 + (isFinite(A.raw[i]) ? A.raw[i] : -140) * 0.25;
+      onFrame();
+    }
+    const sr = A.ctx.sampleRate, binHz = sr / A.an.fftSize;
+    g.beginPath(); g.strokeStyle = '#9aa3b5'; g.lineWidth = 1.5; let first = true;
+    for (let px = pad; px < W - 10; px += 2) {
+      const f = FMIN * Math.pow(FMAX / FMIN, (px - pad) / (W - pad - 10));
+      const lo = Math.max(1, Math.floor(f / 1.06 / binHz)), hi = Math.max(lo, Math.ceil(f * 1.06 / binHz));
+      let s = 0, c = 0; for (let k = lo; k <= hi && k < A.live.length; k++) { s += Math.pow(10, A.live[k] / 10); c++; }
+      const db = 10 * Math.log10(s / Math.max(1, c) + 1e-14) + 10 * Math.log10(f * 0.23 / binHz + 1); // compensa p/ nível de banda
+      const y = Math.min(bot, Math.max(top, fy(db)));
+      if (first) { g.moveTo(px, y); first = false; } else g.lineTo(px, y);
+    }
+    g.stroke();
+  }
+  // análise e alvo
+  const an = lastAnalysis[sel];
+  if (an) {
+    const p = C.PROFILES[an.perfil];
+    if (p) {
+      const { target } = C.deviations(an.bands, p);
+      g.setLineDash([6, 5]); g.strokeStyle = '#3ecf8e'; g.lineWidth = 2; g.beginPath();
+      C.THIRD.forEach((f, i) => { const x = fx(f, W, pad), y = fy(target[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke(); g.setLineDash([]);
+    }
+    g.fillStyle = 'rgba(245,165,36,.85)';
+    C.THIRD.forEach((f, i) => { const x = fx(f, W, pad), y = fy(an.bands[i]); g.beginPath(); g.arc(x, y, 4, 0, 7); g.fill(); });
+    g.strokeStyle = '#f5a524'; g.lineWidth = 2; g.beginPath();
+    C.THIRD.forEach((f, i) => { const x = fx(f, W, pad), y = fy(an.bands[i]); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  }
+  // curva do EQ da mesa (escala própria ±18 dB no centro)
+  if (connected()) {
+    const c = chInfo(sel), mid = (top + bot) / 2, sc = (bot - top) / 2 / 18;
+    g.strokeStyle = 'rgba(90,169,255,.35)'; g.beginPath(); g.moveTo(pad, mid); g.lineTo(W - 10, mid); g.stroke();
+    g.strokeStyle = '#5aa9ff'; g.lineWidth = 2.5; g.beginPath();
+    for (let px = pad; px < W - 10; px += 3) {
+      const f = FMIN * Math.pow(FMAX / FMIN, (px - pad) / (W - pad - 10));
+      const y = mid - Math.max(-18, Math.min(18, C.eqResponse(c, f))) * sc;
+      px === pad ? g.moveTo(px, y) : g.lineTo(px, y);
+    }
+    g.stroke();
+    g.fillStyle = '#5aa9ff'; g.fillText('EQ 0 dB', W - 60, mid - 4);
+  }
+  // marcador de microfonia
+  if (fb.on && fb.cur) { const x = fx(fb.cur.freq, W, pad); g.fillStyle = 'rgba(255,92,92,.25)'; g.fillRect(x - 6, top, 12, bot - top); }
+}
+
+// ---------------- análise (captura de 6 s) ----------------
+const cap = { on: false };
+function soloPath(ch) { return `i.${ch - 1}.solo`; }
+function soloOnly(n) {
+  const prev = {}, alvo = C.linkedChannels(mix.state, n);
+  for (let ch = 1; ch <= NCH; ch++) {
+    prev[ch] = mix.state[soloPath(ch)] ? 1 : 0;
+    const want = alvo.includes(ch) ? 1 : 0;
+    if (prev[ch] !== want) setd(soloPath(ch), want);
+  }
+  return prev;
+}
+function restoreSolo(prev) {
+  if (!prev) return;
+  for (let ch = 1; ch <= NCH; ch++) if ((mix.state[soloPath(ch)] ? 1 : 0) !== prev[ch]) setd(soloPath(ch), prev[ch]);
+}
+async function startAnalysis() {
+  if (!A.on) { await startMic(); if (!A.on) return; }
+  const p = profOf(sel);
+  if (!p) { toast('Escolha primeiro o que está nesse canal'); return; }
+  if (cap.on) return;
+  const n = A.an.frequencyBinCount;
+  let soloPrev = null;
+  $('#btnAnalyze').disabled = true;
+  if (S.linha && S.autoSolo && connected()) {
+    soloPrev = soloOnly(sel);
+    $('#btnAnalyze').textContent = 'Dando solo no canal ' + sel + '…';
+    await new Promise(r => setTimeout(r, 600));
+  }
+  Object.assign(cap, { on: true, t0: performance.now(), dur: 6000, frames: [], peakPre: -80, ch: sel, perfil: p, soloPrev, tdPeak: 0 });
+  $('#btnAnalyze').textContent = 'Escutando…';
+}
+function onFrame() {
+  const t = performance.now();
+  if (cap.on) {
+    const raw = A.raw, n = raw.length;
+    let e = 0; for (let k = 4; k < n; k++) e += Math.pow(10, raw[k] / 10);
+    const fr = new Float32Array(raw); cap.frames.push({ e, fr });
+    if (mix.peak[cap.ch]) cap.peakPre = Math.max(cap.peakPre, mix.peak[cap.ch].db);
+    A.an.getFloatTimeDomainData(A.td); for (let i = 0; i < A.td.length; i += 2) { const a = Math.abs(A.td[i]); if (a > cap.tdPeak) cap.tdPeak = a; }
+    $('#anProg').style.width = Math.min(100, (t - cap.t0) / cap.dur * 100) + '%';
+    if (t - cap.t0 >= cap.dur) finishAnalysis();
+  }
+  if (fb.on) feedbackFrame(t);
+}
+function finishAnalysis() {
+  cap.on = false;
+  restoreSolo(cap.soloPrev); cap.soloPrev = null;
+  $('#btnAnalyze').disabled = false; $('#btnAnalyze').textContent = 'Analisar de novo'; $('#anProg').style.width = '0';
+  const frames = cap.frames; if (!frames.length) return;
+  const maxE = Math.max(...frames.map(f => f.e));
+  const use = frames.filter(f => f.e > maxE / 31.6); // até 15 dB abaixo do quadro mais forte
+  const sr = A.ctx.sampleRate, N = A.an.fftSize, n = A.an.frequencyBinCount;
+  const pow = new Float64Array(n), hits = new Uint16Array(n);
+  use.forEach(f => {
+    for (let k = 0; k < n; k++) pow[k] += Math.pow(10, f.fr[k] / 10) / use.length;
+    C.narrowPeaks(f.fr, sr, N, 100, 12000, 12).forEach(p => { hits[p.bin]++; });
+  });
+  // agrupa acertos de bins vizinhos
+  const rings = [];
+  const avgDb = new Float32Array(n); for (let j = 0; j < n; j++) avgDb[j] = 10 * Math.log10(pow[j] + 1e-20);
+  for (let k = 2; k < n - 2; k++) {
+    const h = hits[k - 1] + hits[k] + hits[k + 1];
+    if (h / use.length > 0.6 && hits[k] >= hits[k - 1] && hits[k] >= hits[k + 1]) {
+      const pk = C.narrowPeaks(avgDb, sr, N, k * sr / N * 0.97, k * sr / N * 1.03, 8)[0];
+      if (pk) rings.push({ freq: pk.freq, prom: pk.prom });
+    }
+  }
+  const quiet = 10 * Math.log10(maxE + 1e-20) < -65 || cap.tdPeak < 0.01;
+  const clip = cap.tdPeak > 0.98;
+  const bands = C.thirdOctave(pow, sr, N);
+  const res = { bands, rings: rings.slice(0, 2), peakPreDb: connected() && mix.vu ? cap.peakPre : null, perfil: cap.perfil, frames: use.length, quiet, clip, linha: S.linha, t: Date.now() };
+  lastAnalysis[cap.ch] = res;
+  const canal = connected() ? chInfo(cap.ch) : null;
+  lastSug[cap.ch] = C.suggest(res, cap.perfil, canal, { micLowCut: S.linha ? 50 : 80 }).sugestoes.map(s => ({ ...s, feito: false }));
+  log(`Análise do canal ${cap.ch}: ${use.length} quadros úteis, ${lastSug[cap.ch].length} sugestões`);
+  if (cap.ch === sel) renderSug();
+}
+function renderSug() {
+  const box = $('#sugList'), an = lastAnalysis[sel], list = lastSug[sel];
+  if (!cap.on) $('#btnAnalyze').textContent = an ? 'Analisar de novo' : 'Analisar 6 segundos';
+  $('#anHelp').innerHTML = S.linha
+    ? `<b>Som vindo da mesa:</b> ${S.autoSolo ? 'o app dá <b>solo</b> no canal sozinho durante a análise e depois volta como estava' : 'dê <b>solo</b> (AFL) no canal na Ui16'}. Dá para analisar com a banda inteira tocando; só precisa que esse instrumento ou voz esteja soando.`
+    : `<b>Como fazer:</b> na passagem de som, peça para <b>só esse instrumento ou voz</b> tocar (os outros em silêncio). Fique com o tablet no meio da igreja, na altura da cabeça, e toque em Analisar.`;
+  if (!an || !list) { box.innerHTML = ''; return; }
+  let html = '';
+  if (an.clip) html += `<div class="note"><b>O sinal chegou distorcido</b> na entrada do tablet. Abaixe o volume PHONES da mesa e analise de novo; o resultado pode estar errado.</div>`;
+  if (an.quiet) html += an.linha
+    ? `<div class="note"><b>Quase nenhum sinal chegou da mesa.</b> Confira o cabo, o volume de fone, se o músico estava tocando e se o canal está em solo.</div>`
+    : `<div class="note"><b>O som estava muito baixo</b> no microfone do tablet. Peça para tocar mais forte ou chegue mais perto das caixas e analise de novo.</div>`;
+  if (an.perfil !== profOf(sel)) html += `<div class="note">Esta análise foi feita com o perfil "${esc(C.PROFILES[an.perfil].nome)}". Analise de novo para usar o perfil atual.</div>`;
+  if (!list.length) html += `<div class="card done"><h4>Está equilibrado 👍</h4><p>Nada passou do limite para ${esc(C.PROFILES[an.perfil].nome.toLowerCase())}. Se ainda incomodar, descreva o problema em "Perguntar à IA".</p></div>`;
+  list.forEach((s, i) => {
+    const tag = s.tipo === 'hpf' ? 'Filtro' : s.tipo === 'ganho' ? 'Ganho' : s.ganho < 0 ? 'Corte' : 'Reforço';
+    html += `<div class="card ${s.feito ? 'done' : ''}"><span class="tag">${tag}${i === 0 ? ' · faça primeiro' : ''}</span><h4>${esc(s.titulo)}</h4><p>${esc(s.porque)}</p>
+      <div class="row">${S.lock ? '' : `<button class="btn small primary" data-ap="${i}" ${connected() ? '' : 'disabled'}>${s.feito ? 'Aplicado ✓' : 'Aplicar na mesa'}</button>`}
+      ${s.feito ? `<button class="btn small" data-un="${i}">Desfazer</button>` : ''}</div></div>`;
+  });
+  if (list.length) html += `<div class="note">Aplique <b>uma sugestão por vez</b> e escute. Se piorar, desfaça. Depois de mexer, analise de novo.${connected() ? '' : ' <b>Conecte a mesa</b> para aplicar com um toque.'}</div>`;
+  box.innerHTML = html;
+  box.querySelectorAll('[data-ap]').forEach(b => b.onclick = () => { const s = list[+b.dataset.ap]; if (s.feito) return; applyAction(s, sel, () => { s.feito = true; renderSug(); }); });
+  box.querySelectorAll('[data-un]').forEach(b => b.onclick = () => { const s = list[+b.dataset.un]; undoLast(); s.feito = false; renderSug(); });
+}
+function renderProfiles() {
+  const cur = profOf(sel);
+  $('#profChips').innerHTML = Object.entries(C.PROFILES).map(([k, p]) => `<button class="chip ${k === cur ? 'on' : ''}" data-p="${k}">${esc(p.nome)}</button>`).join('');
+  $$('#profChips .chip').forEach(b => b.onclick = () => { S.profiles[sel] = b.dataset.p; LS.set('profiles', S.profiles); renderProfiles(); renderChannels(); renderHeader(); renderSug(); });
+}
+
+// ---------------- microfonia ----------------
+const fb = { on: false, det: null, cur: null, list: [] };
+function toggleFb() {
+  if (!A.on) { startMic().then(() => { if (A.on) toggleFb(); }); return; }
+  fb.on = !fb.on; fb.det = C.FeedbackDetector({ holdMs: 350, minProm: 16, minDb: -75 });
+  $('#btnFb').textContent = fb.on ? 'Parar' : 'Começar a escutar';
+  $('#fbSub').textContent = fb.on ? 'Escutando… suba o fader devagar' : 'Parado';
+  if (!fb.on) { $('#fbFreq').textContent = '—'; $('#fbMeter').style.width = '0'; fb.cur = null; }
+}
+function feedbackFrame(t) {
+  const ev = fb.det.update(A.raw, A.ctx.sampleRate, A.an.fftSize, t);
+  const c = fb.det.current();
+  fb.cur = c && c.prom > 14 ? c : null;
+  $('#fbMeter').style.width = c ? Math.min(100, Math.max(0, (c.prom - 8) / 22 * 100)) + '%' : '0';
+  if (fb.cur) { $('#fbFreq').textContent = C.fmtHz(c.freq); $('#fbSub').textContent = 'Nota ' + C.noteName(c.freq) + ' · pico ' + Math.round(c.prom) + ' dB acima dos vizinhos'; }
+  if (ev) {
+    const f = C.roundHz(ev.freq);
+    const prev = fb.list.find(x => Math.abs(Math.log2(x.freq / f)) < 0.05);
+    if (prev) { prev.vezes++; prev.ganho = Math.max(-12, prev.ganho - 3); }
+    else fb.list.unshift({ freq: f, ganho: -6, q: 8, vezes: 1, ch: sel, feito: false });
+    if (navigator.vibrate) navigator.vibrate(200);
+    renderFb();
+  }
+}
+function renderFb() {
+  $('#fbList').innerHTML = fb.list.slice(0, 8).map((x, i) => `<div class="card ${x.feito ? 'done' : ''}"><span class="tag">Microfonia ${x.vezes > 1 ? '· apareceu ' + x.vezes + ' vezes' : ''}</span>
+    <h4>${C.fmtHz(x.freq)} (nota ${C.noteName(x.freq)})</h4><p>Corte estreito sugerido: ${num(x.ganho)} dB, Q ${x.q}, no canal ${sel} (${esc(chName(sel))}).</p>
+    <div class="row">${S.lock ? '' : `<button class="btn small primary" data-fa="${i}" ${connected() ? '' : 'disabled'}>${x.feito ? 'Aplicado ✓' : 'Cortar no canal ' + sel}</button>`}</div></div>`).join('');
+  $$('#fbList [data-fa]').forEach(b => b.onclick = () => { const x = fb.list[+b.dataset.fa]; applyAction({ tipo: 'banda', freq: x.freq, ganho: x.ganho, q: x.q }, sel, () => { x.feito = true; renderFb(); }); });
+}
+
+// ---------------- IA ----------------
+const SYS = `Você é um técnico de som experiente que ajuda o operador voluntário de uma igreja evangélica brasileira. A mesa é uma Soundcraft Ui16 (12 entradas, EQ paramétrico de 4 bandas por canal com frequência 20 Hz–20 kHz, ganho ±20 dB e Q 0,05–15; filtro passa-altas 20 Hz–1 kHz; compressor, gate e de-esser por canal; EQ gráfico de 31 bandas e AFS2 nas saídas).
+Responda em português do Brasil, de forma curta, prática e calma, como quem explica para um voluntário durante a passagem de som ou o culto. Use os dados de medição e o estado da mesa enviados no contexto. Prefira cortes a reforços, mudanças pequenas (no máximo -9 dB / +4 dB), uma coisa de cada vez, e lembre de checar ganho e posição do microfone antes de equalizar. Se faltar informação, faça no máximo uma pergunta.
+Quando recomendar ajustes concretos no canal selecionado, termine a resposta com um bloco de código json no formato:
+\`\`\`json
+{"acoes":[{"tipo":"banda","freq":315,"ganho":-4,"q":1.4},{"tipo":"hpf","freq":120},{"tipo":"ganho","valor":28}]}
+\`\`\`
+(freq em Hz, ganho em dB, "ganho" de entrada em dB entre -40 e 50). Não inclua o bloco se não houver ajuste para aplicar.`;
+function context() {
+  const ctx = { canal_selecionado: sel, nome: chName(sel), perfil: profOf(sel) ? C.PROFILES[profOf(sel)].nome : 'não definido', mesa_conectada: connected() };
+  if (connected()) {
+    const c = chInfo(sel);
+    ctx.eq_atual = { passa_altas: c.hpf.freq <= 21 ? 'desligado' : c.hpf.freq + ' Hz', bypass: c.bypass, bandas: c.bands.map(b => ({ banda: b.band, freq_hz: b.freq, ganho_db: b.gain, q: b.q })), ganho_entrada_db: c.gainDb };
+    if (mix.peak[sel]) ctx.pico_entrada_dbfs = mix.peak[sel].db;
+  }
+  const an = lastAnalysis[sel];
+  if (an) {
+    const { dev } = C.deviations(an.bands, C.PROFILES[an.perfil]);
+    ctx.medicao_microfone_tablet = {
+      fonte: an.linha ? 'sinal elétrico do canal em solo (saída de fone da mesa, pós-EQ se AFL) — não inclui a acústica da igreja' : 'microfone do tablet na plateia — inclui a acústica da igreja',
+      obs: 'desvio em dB por banda de 1/3 de oitava em relação ao equilíbrio ideal do perfil (positivo = sobrando). Com o microfone do tablet, abaixo de ~80 Hz a medição é pouco confiável.',
+      perfil_usado: C.PROFILES[an.perfil].nome,
+      desvios: Object.fromEntries(C.THIRD.map((f, i) => [f + 'Hz', Math.round(dev[i] * 10) / 10])),
+      ressonancias: an.rings.map(r => ({ freq_hz: Math.round(r.freq), destaque_db: Math.round(r.prom) })),
+      sugestoes_automaticas: (lastSug[sel] || []).map(s => s.titulo),
+    };
+  }
+  if (fb.list.length) ctx.microfonias_detectadas_hz = fb.list.map(x => x.freq);
+  return ctx;
+}
+function renderChat() {
+  $('#iaSetup').style.display = S.key ? 'none' : '';
+  $('#chat').innerHTML = chatHist.map((m, i) => {
+    if (m.role === 'user') return `<div class="msg me">${esc(m.show || m.content)}</div>`;
+    let t = esc(m.content).replace(/```json[\s\S]*?```/g, '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').trim();
+    const acts = (m.acoes || []).map((a, j) => `<button class="btn small primary" data-ia="${i}:${j}" ${connected() && !S.lock ? '' : 'disabled'}>${a.feito ? '✓ ' : ''}${esc(describeAction(a, sel).replace(/ do canal \d+| na banda \d+/g, ''))}</button>`).join('');
+    return `<div class="msg ai ${m.err ? 'err' : ''}">${t}${acts ? `<div class="row" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${acts}</div>` : ''}</div>`;
+  }).join('');
+  $$('#chat [data-ia]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.ia.split(':').map(Number); const a = chatHist[i].acoes[j]; applyAction(a, sel, () => { a.feito = true; renderChat(); }); });
+  const t = $('#tIa'); t.scrollTop = t.scrollHeight;
+}
+function parseActions(text) {
+  const m = text.match(/```json\s*([\s\S]*?)```/); if (!m) return [];
+  try {
+    const j = JSON.parse(m[1]);
+    return (j.acoes || []).filter(a =>
+      (a.tipo === 'banda' && a.freq >= 20 && a.freq <= 20000 && Math.abs(a.ganho) <= 12 && a.q > 0) ||
+      (a.tipo === 'hpf' && a.freq >= 20 && a.freq <= 1000) ||
+      (a.tipo === 'ganho' && a.valor >= -40 && a.valor <= 50)).slice(0, 4)
+      .map(a => a.tipo === 'banda' ? { tipo: 'banda', freq: C.roundHz(a.freq), ganho: C.clamp(Math.round(a.ganho * 2) / 2, -9, 4), q: C.clamp(Math.round(a.q * 10) / 10, 0.3, 10) } : a);
+  } catch { return []; }
+}
+async function ask(q) {
+  q = (q || '').trim(); if (!q) return;
+  if (!S.key) { switchTab('tCfg'); $('#cfgKey').focus(); toast('Coloque a chave da API em Ajustes'); return; }
+  const ctx = context();
+  chatHist.push({ role: 'user', content: `Contexto atual (JSON):\n${JSON.stringify(ctx)}\n\nPergunta do operador: ${q}`, show: q });
+  chatHist.push({ role: 'assistant', content: 'Pensando…', pending: true });
+  renderChat(); $('#btnAsk').disabled = true;
+  try {
+    const msgs = chatHist.filter(m => !m.pending && !m.err).map(m => ({ role: m.role, content: m.content })).slice(-12);
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': S.key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({ model: S.model, max_tokens: 1200, system: SYS, messages: msgs }),
+    });
+    const j = await r.json();
+    chatHist.pop();
+    if (!r.ok) throw new Error((j.error && j.error.message) || ('HTTP ' + r.status));
+    const text = (j.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+    chatHist.push({ role: 'assistant', content: text, acoes: parseActions(text) });
+  } catch (e) {
+    if (chatHist.length && chatHist[chatHist.length - 1].pending) chatHist.pop();
+    chatHist.push({ role: 'assistant', content: 'Não consegui falar com a IA: ' + e.message + (navigator.onLine ? '' : ' (o tablet está sem internet)'), err: true });
+  }
+  $('#btnAsk').disabled = false; renderChat();
+}
+const QUICK = ['Está abafado', 'Está estridente / machucando', 'A voz some atrás da banda', 'Está embolado', 'Tem microfonia', 'O grave está demais', 'Como deixar a pregação mais clara?'];
+
+// ---------------- diálogos ----------------
+function confirmDlg(t, body) {
+  return new Promise(res => {
+    const d = $('#dlg'); $('#dlgT').textContent = t; $('#dlgB').innerHTML = `<p style="color:var(--muted);margin:0">${esc(body)}</p>`;
+    $('#dlgOk').style.display = ''; $('#dlgNo').textContent = 'Cancelar';
+    $('#dlgOk').onclick = () => { d.close(); res(true); }; $('#dlgNo').onclick = () => { d.close(); res(false); };
+    d.showModal();
+  });
+}
+function showInfo(t, body) { const d = $('#dlg'); $('#dlgT').textContent = t; $('#dlgB').innerHTML = `<p style="color:var(--muted);margin:0">${esc(body)}</p>`; $('#dlgOk').style.display = 'none'; $('#dlgNo').textContent = 'Fechar'; $('#dlgNo').onclick = () => d.close(); d.showModal(); }
+function switchTab(id) { $$('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id)); $$('.tab').forEach(t => t.classList.toggle('on', t.id === id)); if (id === 'tIa') renderChat(); }
+
+// ---------------- ligações ----------------
+$$('.tabs button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+$('#btnMic').onclick = startMic; $('#btnMic2').onclick = startMic;
+$('#btnConnect').onclick = () => (mix.status === 'off' || mix.status === 'err') && !mix.wantOpen ? connectMixer() : disconnectMixer();
+$('#btnAnalyze').onclick = startAnalysis;
+$('#btnFb').onclick = toggleFb;
+$('#btnFreeze').onclick = () => { A.frozen = !A.frozen; $('#btnFreeze').textContent = A.frozen ? 'Descongelar' : 'Congelar'; };
+$('#btnAsk').onclick = () => { const v = $('#iaInput').value; $('#iaInput').value = ''; ask(v); };
+$('#iaInput').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#btnAsk').click(); } });
+$('#iaQuick').innerHTML = QUICK.map(q => `<button class="chip">${q}</button>`).join('');
+$$('#iaQuick .chip').forEach(b => b.onclick = () => ask(b.textContent + ` (canal ${sel})`));
+$('#btnUndoAll').onclick = async () => { if (!undo.length) { toast('Nada para desfazer'); return; } if (await confirmDlg('Desfazer tudo?', `Volta ${undo.length} mudança(s) feitas pelo app.`)) { while (undo.length) undoLast(); } };
+const bindCfg = (id, key, prop = 'value', after) => { const el = $(id); el[prop] = S[key]; el.onchange = () => { S[key] = prop === 'checked' ? el.checked : el.value.trim(); LS.set(key, S[key]); after && after(); }; };
+bindCfg('#cfgIp', 'ip'); bindCfg('#cfgKey', 'key', 'value', renderChat); bindCfg('#cfgModel', 'model');
+bindCfg('#cfgDemo', 'demo', 'checked', () => { disconnectMixer(); connectMixer(); });
+bindCfg('#cfgConfirm', 'confirm', 'checked'); bindCfg('#cfgLock', 'lock', 'checked', () => { renderSug(); renderFb(); });
+bindCfg('#cfgWake', 'wake', 'checked', keepAwake);
+bindCfg('#cfgLinha', 'linha', 'checked', () => { renderSug(); if (A.on) $('#micTxt').textContent = S.linha ? 'Ouvindo a mesa' : 'Ouvindo a igreja'; });
+bindCfg('#cfgAutoSolo', 'autoSolo', 'checked', renderSug);
+$('#cfgInput').onchange = () => {
+  S.input = $('#cfgInput').value; LS.set('input', S.input);
+  if (S.input && !S.linha) { S.linha = true; LS.set('linha', true); $('#cfgLinha').checked = true; toast('Modo "som vem da mesa" ligado'); }
+  if (!S.input && S.linha) { S.linha = false; LS.set('linha', false); $('#cfgLinha').checked = false; }
+  renderSug(); restartAudio();
+};
+listInputs();
+window.addEventListener('beforeunload', e => { if (undo.length) { e.preventDefault(); e.returnValue = ''; } });
+
+renderChannels(); renderHeader(); renderEq(); renderProfiles(); renderSug(); setMixStatus('off', 'Mesa desconectada');
+if (S.demo || S.ip) connectMixer();
+requestAnimationFrame(draw);
+// ganchos para testes
+window.__som = { mix, C, lastAnalysis, lastSug, A, fb, applyAction, startAnalysis, selectCh, S, undo };
+})();
+</script>
+</body>
+</html>

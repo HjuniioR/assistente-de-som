@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assistente de Som</title>
+<style>
+  html,body{margin:0;height:100%;background:#0f1115;color:#e8eaf0;font:16px/1.5 system-ui,sans-serif}
+  .box{max-width:460px;margin:20vh auto;padding:0 20px;text-align:center}
+  .err{color:#ffb3b3}
+  button{margin-top:14px;padding:12px 18px;border-radius:10px;border:0;background:#f5a524;color:#1a1200;font:inherit;font-weight:600}
+</style>
+</head>
+<body>
+<div class="box" id="box">Carregando a versão mais nova do app…</div>
+<script>
+// Carregador: este arquivo fica no tablet, dentro da pasta do servidor local.
+// Ele baixa a última versão do app no GitHub e guarda uma cópia para usar sem internet.
+const REPO = 'HjuniioR/assistente-de-som';
+const ARQUIVO = 'assistente-de-som.html';
+const CHAVE = 'som.app.cache';
+
+function abrir(html) { document.open(); document.write(html); document.close(); }
+function aviso(t) { document.getElementById('box').innerHTML = t; }
+
+(async () => {
+  let cache = null;
+  try { cache = JSON.parse(localStorage.getItem(CHAVE)); } catch {}
+  try {
+    const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${ARQUIVO}?ref=main&t=${Date.now()}`, {
+      headers: { Accept: 'application/vnd.github.raw' }, cache: 'no-store', signal: ctl.signal,
+    });
+    clearTimeout(tm);
+    if (!r.ok) throw new Error('GitHub respondeu ' + r.status);
+    const html = await r.text();
+    if (!html.includes('Assistente de Som')) throw new Error('arquivo inesperado');
+    try { localStorage.setItem(CHAVE, JSON.stringify({ html, quando: Date.now() })); } catch {}
+    abrir(html);
+  } catch (e) {
+    if (cache && cache.html) {
+      sessionStorage.setItem('som.offline', new Date(cache.quando).toLocaleString('pt-BR'));
+      abrir(cache.html);
+    } else {
+      aviso(`<p class="err">Não consegui baixar o app (${e.message}).</p><p>Confira se o tablet está com internet e tente de novo. Depois da primeira vez, ele funciona mesmo sem internet.</p><button onclick="location.reload()">Tentar de novo</button>`);
+    }
+  }
+})();
+</script>
+</body>
+</html>
