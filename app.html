@@ -219,7 +219,7 @@ dialog .row{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 </script>
 <script>
 (() => {
-const VERSAO = '1.1 · 07/11/2026';
+const VERSAO = '1.2 · 07/11/2026';
 const C = Core, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const LS = {
   get(k, d) { try { const v = localStorage.getItem('som.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -434,6 +434,12 @@ async function startMic() {
     showInfo('Microfone bloqueado', 'O navegador só libera o microfone quando o app é aberto por http://localhost (servidor local do tablet) ou https. Veja as instruções de instalação.');
     return;
   }
+  // Android: o AudioContext precisa nascer no toque do usuário, antes de qualquer espera
+  try { if (!A.ctx || A.ctx.state === 'closed') A.ctx = new (window.AudioContext || window.webkitAudioContext)(); A.ctx.resume(); } catch {}
+  $('#micDot').className = 'dot warn'; $('#micTxt').textContent = 'Pedindo o áudio…';
+  const espera = setTimeout(() => {
+    if (!A.on) showInfo('O Chrome não liberou o áudio', 'Se não apareceu o pedido de permissão: toque no ícone à esquerda do endereço (barra do Chrome) → Permissões → Microfone → Permitir. Depois toque em "Ligar áudio" de novo. Se ainda travar, feche o Chrome por completo e abra de novo.');
+  }, 10000);
   try {
     const audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: 1 };
     if (S.input) audio.deviceId = { exact: S.input };
@@ -444,7 +450,9 @@ async function startMic() {
       delete audio.deviceId; stream = await navigator.mediaDevices.getUserMedia({ audio });
       toast('A placa escolhida não respondeu; usando o microfone padrão');
     }
-    A.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    clearTimeout(espera);
+    if (!A.ctx || A.ctx.state === 'closed') A.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    try { await A.ctx.resume(); } catch {}
     const src = A.ctx.createMediaStreamSource(stream);
     A.an = A.ctx.createAnalyser(); A.an.fftSize = 8192; A.an.smoothingTimeConstant = 0; A.an.minDecibels = -140; A.an.maxDecibels = 0;
     src.connect(A.an);
@@ -459,14 +467,18 @@ async function startMic() {
     log(`Microfone ligado (${A.ctx.sampleRate} Hz)`);
     keepAwake();
   } catch (e) {
+    clearTimeout(espera);
+    $('#micDot').className = 'dot bad'; $('#micTxt').textContent = 'Áudio bloqueado';
     showInfo('Não consegui abrir o microfone', 'Permita o uso do microfone para este site nas configurações do Chrome. Detalhe: ' + e.message);
   }
 }
 function stopMic() {
-  A.on = false; try { A.stream.getTracks().forEach(t => t.stop()); A.ctx.close(); } catch {}
+  A.on = false; try { A.stream.getTracks().forEach(t => t.stop()); A.ctx.close(); } catch {} A.ctx = null;
   $('#micDot').className = 'dot'; $('#micTxt').textContent = 'Áudio desligado'; $('#btnMic').textContent = 'Ligar áudio';
   $('#specOverlay').style.display = '';
 }
+// se o Android "adormecer" o áudio, qualquer toque acorda
+document.addEventListener('pointerdown', () => { if (A.ctx && A.ctx.state === 'suspended') A.ctx.resume(); }, true);
 let knownInputs = null;
 async function listInputs() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
@@ -505,6 +517,9 @@ function draw() {
   [31.5, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000].forEach(f => { const x = fx(f, W, pad); g.beginPath(); g.moveTo(x, top); g.lineTo(x, bot); g.stroke(); g.fillText(f >= 1000 ? f / 1000 + 'k' : f, x - 8, H - 8); });
   for (let d = -90; d <= -20; d += 10) { const y = fy(d); g.beginPath(); g.moveTo(pad, y); g.lineTo(W - 10, y); g.stroke(); }
   // ao vivo (suavizado em 1/6 de oitava, médio no tempo)
+  if (A.on && A.ctx.state === 'suspended') {
+    g.fillStyle = '#ff9f43'; g.font = '600 16px system-ui'; g.fillText('Áudio pausado pelo Android — toque em qualquer lugar da tela', pad + 10, top + 30); g.font = '11px system-ui';
+  }
   if (A.on) {
     if (!A.frozen) {
       A.an.getFloatFrequencyData(A.raw);
